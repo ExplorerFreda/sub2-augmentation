@@ -8,13 +8,14 @@ from transformers import AutoTokenizer, AutoModel
 class POSTagger(nn.Module):
     def __init__(
             self, model_name, tagset, device='cuda',
-            hidden_dim=1024, fine_tune=False
+            hidden_dim=1024, dropout_p=0.2, fine_tune=False
         ):
         super(POSTagger, self).__init__()
         self.tagset = tagset
         self.device = device
         self.fine_tune = fine_tune
         self.hidden_dim = hidden_dim
+        self.dropout_p = dropout_p
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.pretrained_model = AutoModel.from_pretrained(
@@ -29,6 +30,7 @@ class POSTagger(nn.Module):
         )
         self.feature_dim = self.pretrained_model.config.hidden_size * 2
         layers = [
+            nn.Dropout(p=dropout_p),
             nn.Linear(self.feature_dim, hidden_dim),
             nn.ReLU(),
             nn.Linear(self.hidden_dim, len(tagset))
