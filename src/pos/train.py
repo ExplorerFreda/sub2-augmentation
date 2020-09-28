@@ -125,7 +125,7 @@ if __name__ == '__main__':
                 'flag': None
             },
             'data_path': {
-                'values': ['../data/*/*/{lang}-ud-{split}.conllu'],
+                'values': ['../data/*/*/{lang}-ud-{split}*.conllu'],
                 'flag': None
             },
             'learning_rate': {
