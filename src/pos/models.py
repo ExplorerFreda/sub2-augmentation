@@ -20,6 +20,8 @@ class POSTagger(nn.Module):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         self.pretrained_model = AutoModel.from_pretrained(
             model_name).to(device)
+        self.max_length = \
+            self.pretrained_model.config.max_position_embeddings - 2
         if not fine_tune:
             for p in self.pretrained_model.parameters():
                 p.requires_grad = False
@@ -56,8 +58,8 @@ class POSTagger(nn.Module):
         subwords, attention_masks, lbs, rbs = zip(*tokenized_sentences)
         subwords = self.__pad__(subwords, self.tokenizer.pad_token)
         attention_masks = self.__pad__(attention_masks, 0)
-        lbs = self.__pad__(lbs, -1)
-        rbs = self.__pad__(rbs, -1)
+        lbs = torch.tensor(self.__pad__(lbs, -1)).long().to(self.device)
+        rbs = torch.tensor(self.__pad__(rbs, -1)).long().to(self.device)
         ids = torch.tensor([
             self.tokenizer.convert_tokens_to_ids(x) for x in subwords
         ]).to(self.device)
@@ -74,14 +76,19 @@ class POSTagger(nn.Module):
             )
         return padded_data
 
-    def forward(self, batch):
-        ids, attention_masks, lbs, rbs = self.__tokenize__(batch)
-        _, _, layerwise_output = self.pretrained_model(
-            ids, attention_masks, output_hidden_states=True
-        )
-        layerwise_output = torch.cat(
-            [x.unsqueeze(-1) for x in layerwise_output], dim=-1
-        )
+    def forward(self, ids, attention_masks, lbs, rbs):
+        layerwise_output = list()
+        for sid in range(0, ids.shape[1], self.max_length):
+            sub_ids = ids[:, sid:sid+self.max_length]
+            sub_attn_masks = attention_masks[:, sid:sid+self.max_length]
+            _, _, sub_layerwise_output = self.pretrained_model(
+                sub_ids, sub_attn_masks, output_hidden_states=True
+            )
+            sub_layerwise_output = torch.cat(
+                [x.unsqueeze(-1) for x in sub_layerwise_output], dim=-1
+            )
+            layerwise_output.append(sub_layerwise_output)
+        layerwise_output = torch.cat(layerwise_output, dim=1)
         subword_features = (
             self.layer_weight.softmax(dim=1) * layerwise_output
         ).sum(-1)
@@ -93,6 +100,13 @@ class POSTagger(nn.Module):
         ]
         word_features = torch.cat([left_features, right_features], dim=-1)
         logits = self.classifier(word_features)
+        return logits
+
+    @staticmethod
+    def forward_batch(model, batch):
+        abs_model = model if isinstance(model, POSTagger) else model.module
+        ids, attention_masks, lbs, rbs = abs_model.__tokenize__(batch)
+        logits = model(ids, attention_masks, lbs, rbs)
         return logits
 
 
