@@ -1,15 +1,19 @@
 import collections
 import dotdict
+import hashlib
+import json
 import os
 import submitit
 import sys
 import torch
 import torch.nn as nn
+from pathlib import Path
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from data import UniversalDependenciesDataset
-from global_utils import search_hyperparams, AverageMeter, save_result
+from global_utils import search_hyperparams, AverageMeter, save_result, \
+    save_checkpoint, load_checkpoint
 
 from pos.models import POSTagger
 from pos.utils import high_resource_language_list, low_resource_language_list
@@ -63,7 +67,8 @@ def train(configs):
         configs.model_name, dataset['train'].tag2id, configs.device, 
         configs.hidden_dim, configs.dropout_p, configs.fine_tune
     )
-    model = nn.DataParallel(model)
+    if configs.device == 'cuda':
+        model = nn.DataParallel(model)
 
     # build optimizer
     trainable_params = list(
@@ -75,10 +80,21 @@ def train(configs):
     )
     cross_entropy = nn.CrossEntropyLoss(ignore_index=-1, reduction='mean')
 
+    # load checkpoint (if exists)
+    hasher = hashlib.md5()
+    hasher.update(json.dumps(configs, sort_keys=True).encode('utf-8'))
+    checkpoint_path = f'{configs.tmp_path}/{hasher.hexdigest()}.pt'
+    if os.path.exists(checkpoint_path):
+        start_epoch_id, checkpoint, best_dev_acc = load_checkpoint(
+            checkpoint_path, model, optimizer, None
+        )
+    else:
+        start_epoch_id = 0
+        best_dev_acc = 0
+        checkpoint = model.state_dict()
+
     # train
-    checkpoint = model.state_dict()
-    best_dev_acc = 0
-    for epoch_id in range(configs.epochs):
+    for epoch_id in range(start_epoch_id+1, configs.epochs):
         model.train()
         loss_meter = AverageMeter()
         bar = tqdm(dataloader['train'])
@@ -106,10 +122,22 @@ def train(configs):
                 if accuracy > best_dev_acc:
                     best_dev_acc = accuracy
                     checkpoint = model.state_dict()
+        save_checkpoint(
+            path=checkpoint_path, 
+            model=model, 
+            best_dev_model=checkpoint, 
+            best_dev_performance=best_dev_acc,
+            optimizer=optimizer, 
+            lr_scheduler=None, 
+            epoch_id=epoch_id
+        )
     
     # test 
     model.load_state_dict(checkpoint)
     test_acc = evaluate_accuracy(model, dataloader['test'])
+
+    # remove the checkpoint path to save space
+    os.system(f'rm {checkpoint_path}')
     return configs, best_dev_acc, test_acc
 
 
@@ -172,6 +200,10 @@ if __name__ == '__main__':
             'seed':{
                 'values': [115],
                 'flag': 'global-seed'
+            },
+            'tmp_path':{
+                'values': [f'{str(Path.home())}/tmp'],
+                'flag': None
             }
         }
     )

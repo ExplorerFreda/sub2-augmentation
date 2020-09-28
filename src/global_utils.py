@@ -1,6 +1,7 @@
 import collections
 import copy
 import json
+import torch 
 
 
 def search_hyperparams(current_hparams, dictionary):
@@ -78,3 +79,40 @@ def collect_result(data, collect_key='lang'):
         else:
             result[key] = (best_dev, test)
     return result
+
+
+def save_checkpoint(
+            path, model, best_dev_model, best_dev_performance,
+            optimizer, lr_scheduler, epoch_id
+        ):
+    print(f'Saving model to checkpoint path {path}.')
+    random_state = torch.get_rng_state()
+    cuda_random_state = torch.cuda.get_rng_state() \
+        if torch.cuda.is_available() else None
+    checkpoint = {
+        'random_state': random_state,
+        'cuda_random_state': cuda_random_state,
+        'model': model.state_dict(),
+        'best_dev_model': best_dev_model,
+        'best_dev_performance': best_dev_performance,
+        'optimizer': optimizer.state_dict(),
+        'lr_scheduler': lr_scheduler.state_dict() if lr_scheduler is not None \
+            else None,
+        'epoch_id': epoch_id
+    }
+    torch.save(checkpoint, path)
+
+
+def load_checkpoint(path, model, optimizer, lr_scheduler):
+    print(f'Loading checkpoint from {path}.')
+    state_dicts = torch.load(path)
+    torch.set_rng_state(state_dicts['random_state'])
+    if state_dicts['cuda_random_state'] is not None:
+        torch.cuda.set_rng_state(state_dicts['cuda_random_state'])
+    model.load_state_dict(state_dicts['model'])
+    best_dev_model = state_dicts['best_dev_model']
+    best_dev_performance = state_dicts['best_dev_performance']
+    optimizer.load_state_dict(state_dicts['optimizer'])
+    if state_dicts['lr_scheduler'] is not None:
+        lr_scheduler.load_state_dcit(state_dicts['lr_scheduler'])
+    return state_dicts['epoch_id'], best_dev_model, best_dev_performance
