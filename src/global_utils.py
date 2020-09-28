@@ -1,4 +1,7 @@
+import collections
 import copy
+import json
+
 
 def search_hyperparams(current_hparams, dictionary):
     if len(dictionary) == 0:
@@ -55,3 +58,23 @@ class AverageMeter(object):
         self.count += n
         self.tot_count += n
         self.avg = self.sum / self.count
+
+
+def save_result(data, fname):
+    with open(fname, 'a') as fout:
+        for item in data:
+            print(json.dumps(item), file=fout)
+    fout.close()
+
+
+def collect_result(data, collect_key='lang'):
+    result = collections.defaultdict(None)
+    for line in open(data):
+        configs, best_dev, test = json.loads(line)
+        key = configs[collect_key]
+        if key in result:
+            if best_dev > result[key][0]:
+                result[key] = (best_dev, test)
+        else:
+            result[key] = (best_dev, test)
+    return result
