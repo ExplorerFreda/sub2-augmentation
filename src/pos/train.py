@@ -2,13 +2,14 @@ import collections
 import dotdict
 import os
 import submitit
+import sys
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from data import UniversalDependenciesDataset
-from global_utils import search_hyperparams, AverageMeter
+from global_utils import search_hyperparams, AverageMeter, save_result
 
 from pos.models import POSTagger
 from pos.utils import high_resource_language_list, low_resource_language_list
@@ -176,4 +177,16 @@ if __name__ == '__main__':
     )
     all_configs = list(search_hyperparams(dict(), meta_configs))
 
-    from IPython import embed; embed(using=False)
+    log_folder = '~/logs/postag_logs/'
+    os.system(f'mkdir -p {log_folder}')
+    executor = submitit.AutoExecutor(folder=log_folder)
+    executor.update_parameters(
+        timeout_min=4320, slurm_partition=sys.argv[1],
+        cpus_per_task=8, gpus_per_node=2, nodes=1, slurm_mem='128G',
+        slurm_array_parallelism=2048
+    )
+    jobs = executor.map_array(train, all_configs)
+    from IPython import embed; embed(using=False)  # for babysit jobs
+    result = [job.result() for job in jobs]
+    os.system(f'mkdir -p ../result/pos_tagging/')
+    save_result('../result/pos_tagging/baseline.json')
