@@ -18,6 +18,10 @@ class POSTagger(nn.Module):
         self.dropout_p = dropout_p
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        if self.tokenizer.bos_token is None:
+            self.tokenizer.bos_token = self.tokenizer.cls_token
+        if self.tokenizer.eos_token is None:
+            self.tokenizer.eos_token = self.tokenizer.sep_token
         self.pretrained_model = AutoModel.from_pretrained(
             model_name).to(device)
         self.max_length = \

@@ -189,4 +189,4 @@ if __name__ == '__main__':
     from IPython import embed; embed(using=False)  # for babysit jobs
     result = [job.result() for job in jobs]
     os.system(f'mkdir -p ../result/pos_tagging/')
-    save_result('../result/pos_tagging/baseline.json')
+    save_result(result, '../result/pos_tagging/baseline.json')
