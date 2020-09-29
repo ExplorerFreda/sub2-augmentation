@@ -36,7 +36,7 @@ meta_configs = dotdict.DotDict(
             'flag': 'optimizer'
         },
         'model_name': {
-            'values': ['bert-base-multilingual-cased'],
+            'values': ['xlm-roberta-large'],
             'flag': 'pretrained-model'
         },
         'device': {
@@ -81,9 +81,7 @@ meta_configs = dotdict.DotDict(
         }
     }
 )
-
-
-all_configs = list(search_hyperparams(dict(), meta_configs))
+all_configs = list(search_hyperparams(dict(), meta_configs))[2:4]
 
 log_folder = '~/logs/postag_logs/'
 os.system(f'mkdir -p {log_folder}')
@@ -97,4 +95,4 @@ jobs = executor.map_array(train, all_configs)
 from IPython import embed; embed(using=False)  # for babysit jobs
 result = [job.result() for job in jobs]
 os.system(f'mkdir -p ../result/pos_tagging/')
-save_result(result, '../result/pos_tagging/baseline-bert-base.json')
+save_result(result, '../result/pos_tagging/baseline-xlm-roberta-large.json')
