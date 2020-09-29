@@ -142,5 +142,5 @@ def load_checkpoint(path, model, optimizer, lr_scheduler):
     best_dev_performance = state_dicts['best_dev_performance']
     optimizer.load_state_dict(state_dicts['optimizer'])
     if state_dicts['lr_scheduler'] is not None:
-        lr_scheduler.load_state_dcit(state_dicts['lr_scheduler'])
+        lr_scheduler.load_state_dict(state_dicts['lr_scheduler'])
     return state_dicts['epoch_id'], best_dev_model, best_dev_performance
