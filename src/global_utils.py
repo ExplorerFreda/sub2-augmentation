@@ -2,6 +2,7 @@ import collections
 import copy
 import json
 import torch 
+from tqdm import tqdm
 
 
 def search_hyperparams(current_hparams, dictionary):
