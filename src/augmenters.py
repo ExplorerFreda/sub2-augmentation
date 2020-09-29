@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 class Augmenter(object):
     def __init__(self, dataset):
+        self.original_dataset = dataset
         self.dataset = copy.deepcopy(dataset)
 
 
@@ -14,6 +15,9 @@ class POSTagAugmenter(Augmenter):
         super(POSTagAugmenter, self).__init__(dataset)
         self.k = n_gram
         self.build_ngram_table(dataset, n_gram)
+
+    def reset(self):
+        self.dataset = copy.deepcopy(self.original_dataset)
 
     def build_ngram_table(self, dataset, k):
         self.ngram_table = collections.defaultdict(list)
