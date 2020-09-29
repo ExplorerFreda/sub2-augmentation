@@ -3,14 +3,15 @@ import dotdict
 import hashlib
 import json
 import os
+import random
 import submitit
 import sys
 import torch
 import torch.nn as nn
-from pathlib import Path
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from augmenters import POSTagAugmenter
 from data import UniversalDependenciesDataset
 from global_utils import search_hyperparams, AverageMeter, save_result, \
     save_checkpoint, load_checkpoint
@@ -47,7 +48,8 @@ def train(configs):
     # set up
     configs = dotdict.DotDict(configs)
     torch.manual_seed(configs.seed)
-    torch.cuda.manual_seed(configs.seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(configs.seed)
 
     # load dataset 
     dataset = collections.defaultdict(None)
@@ -61,6 +63,8 @@ def train(configs):
             dataset[split], batch_size=configs.batch_size,
             shuffle=(split == 'train'), collate_fn=dataset[split].collate_fn
         )
+    if configs.augment:
+        augmenter = POSTagAugmenter(dataset['train'])
 
     # build models
     model = POSTagger(
@@ -95,6 +99,16 @@ def train(configs):
 
     # train
     for epoch_id in range(start_epoch_id+1, configs.epochs):
+        # augment training set if applicable 
+        random.seed(epoch_id * configs.seed)
+        if configs.augment:
+            augmenter.reset()
+            dataset['train'] = augmenter.augment()
+            dataloader['train'] = DataLoader(
+                dataset['train'], batch_size=configs.batch_size,
+                shuffle=True, collate_fn=dataset['train'].collate_fn
+            )
+        # train model 
         model.train()
         loss_meter = AverageMeter()
         bar = tqdm(dataloader['train'])
@@ -122,6 +136,7 @@ def train(configs):
                 if accuracy > best_dev_acc:
                     best_dev_acc = accuracy
                     checkpoint = model.state_dict()
+        # save checkpoint after each epoch
         save_checkpoint(
             path=checkpoint_path, 
             model=model, 
@@ -136,12 +151,11 @@ def train(configs):
     model.load_state_dict(checkpoint)
     test_acc = evaluate_accuracy(model, dataloader['test'])
 
-    # remove the checkpoint path to save space
-    os.system(f'rm {checkpoint_path}')
     return configs, best_dev_acc, test_acc
 
 
 if __name__ == '__main__':
+    from pathlib import Path
     meta_configs = dotdict.DotDict(
         {
             'lang': {
@@ -174,7 +188,7 @@ if __name__ == '__main__':
                 'flag': None
             },
             'hidden_dim': {
-                'values': [256],
+                'values': [256, 512],
                 'flag': None
             },
             'dropout_p': {
@@ -204,21 +218,12 @@ if __name__ == '__main__':
             'tmp_path':{
                 'values': [f'{str(Path.home())}/tmp'],
                 'flag': None
+            },
+            'augment': {
+                'values': [True],
+                'flag': None
             }
         }
     )
     all_configs = list(search_hyperparams(dict(), meta_configs))
-
-    log_folder = '~/logs/postag_logs/'
-    os.system(f'mkdir -p {log_folder}')
-    executor = submitit.AutoExecutor(folder=log_folder)
-    executor.update_parameters(
-        timeout_min=4320, slurm_partition=sys.argv[1],
-        cpus_per_task=8, gpus_per_node=2, nodes=1, slurm_mem='128G',
-        slurm_array_parallelism=2048
-    )
-    jobs = executor.map_array(train, all_configs)
-    from IPython import embed; embed(using=False)  # for babysit jobs
-    result = [job.result() for job in jobs]
-    os.system(f'mkdir -p ../result/pos_tagging/')
-    save_result(result, '../result/pos_tagging/baseline.json')
+    from IPython import embed; embed(using=False)
