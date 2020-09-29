@@ -82,6 +82,9 @@ def train(configs):
         trainable_params, 
         lr=configs.learning_rate
     )
+    lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, 'max', factor=0.2, min_lr=configs.min_lr
+    )
     cross_entropy = nn.CrossEntropyLoss(ignore_index=-1, reduction='mean')
 
     # load checkpoint (if exists)
@@ -90,7 +93,7 @@ def train(configs):
     checkpoint_path = f'{configs.tmp_path}/{hasher.hexdigest()}.pt'
     if os.path.exists(checkpoint_path):
         start_epoch_id, checkpoint, best_dev_acc = load_checkpoint(
-            checkpoint_path, model, optimizer, None
+            checkpoint_path, model, optimizer, lr_scheduler
         )
     else:
         start_epoch_id = 0
@@ -133,6 +136,7 @@ def train(configs):
             )
             if (i + 1) % eval_chunk == 0:
                 accuracy = evaluate_accuracy(model, dataloader['dev'])
+                lr_scheduler.step(accuracy)
                 if accuracy > best_dev_acc:
                     best_dev_acc = accuracy
                     checkpoint = model.state_dict()
@@ -143,7 +147,7 @@ def train(configs):
             best_dev_model=checkpoint, 
             best_dev_performance=best_dev_acc,
             optimizer=optimizer, 
-            lr_scheduler=None, 
+            lr_scheduler=lr_scheduler, 
             epoch_id=epoch_id
         )
     
@@ -172,8 +176,12 @@ if __name__ == '__main__':
                 'flag': None
             },
             'learning_rate': {
-                'values': [0.0005],
+                'values': [0.001],
                 'flag': 'optimizer'
+            },
+            'min_lr': {
+                'values': [5e-6],
+                'flag': None
             },
             'optimizer': {
                 'values': ['Adam'],
@@ -188,20 +196,20 @@ if __name__ == '__main__':
                 'flag': None
             },
             'hidden_dim': {
-                'values': [256, 512],
+                'values': [128, 256, 512],
                 'flag': None
             },
             'dropout_p': {
-                'values': [0.0, 0.1],
+                'values': [0.0, 0.2],
                 'flag': None
             },
             'fine_tune': {
                 'values': [False],
-                'flag': None
+                'flag': 'fine-tune'
             },
             'batch_size': {
                 'values': [32],
-                'flag': None
+                'flag': 'fine-tune'
             },
             'epochs': {
                 'values': [100],
@@ -221,7 +229,7 @@ if __name__ == '__main__':
             },
             'augment': {
                 'values': [True],
-                'flag': None
+                'flag': 'augment'
             }
         }
     )
