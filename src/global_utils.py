@@ -35,6 +35,33 @@ def search_hyperparams(current_hparams, dictionary):
         dictionary[key] = copy.deepcopy(current_dictionary[key])
 
 
+def slurm_job_babysit(executor, job_func, jobs, all_configs):
+    resubmit_ids = list()
+    new_configs = list()
+    cnt_complete = 0
+    bar = tqdm(jobs)
+    for idx, job in enumerate(bar):
+        state = job.state
+        if state != 'RUNNING' and state != 'COMPLETED' and \
+                state != 'PENDING' and state != 'UNKNOWN':
+            new_configs.append(all_configs[idx])
+            resubmit_ids.append(idx)
+        elif state == 'COMPLETED':
+            cnt_complete += 1
+        bar.set_description(
+            f'{cnt_complete} jobs finished, '
+            f'{len(resubmit_ids)} jobs resubmitting'
+        )
+    print(f'{cnt_complete} jobs finished!')
+    print(resubmit_ids)
+    print([jobs[x] for x in resubmit_ids])
+    if len(resubmit_ids) > 0:
+        new_jobs = executor.map_array(job_func, new_configs)
+        for idx, job in enumerate(new_jobs):
+            jobs[resubmit_ids[idx]] = job
+    return cnt_complete
+
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
     val = 0
@@ -85,7 +112,7 @@ def save_checkpoint(
             path, model, best_dev_model, best_dev_performance,
             optimizer, lr_scheduler, epoch_id
         ):
-    print(f'Saving model to checkpoint path {path}.')
+    print(f'Saving model to checkpoint path {path}.', flush=True)
     random_state = torch.get_rng_state()
     cuda_random_state = torch.cuda.get_rng_state() \
         if torch.cuda.is_available() else None
@@ -104,7 +131,7 @@ def save_checkpoint(
 
 
 def load_checkpoint(path, model, optimizer, lr_scheduler):
-    print(f'Loading checkpoint from {path}.')
+    print(f'Loading checkpoint from {path}.', flush=True)
     state_dicts = torch.load(path)
     torch.set_rng_state(state_dicts['random_state'])
     if state_dicts['cuda_random_state'] is not None:
