@@ -95,4 +95,4 @@ jobs = executor.map_array(train, all_configs)
 from IPython import embed; embed(using=False)  # for babysit jobs
 result = [job.result() for job in jobs]
 os.system(f'mkdir -p ../result/pos_tagging/')
-save_result(result, '../result/pos_tagging/baseline-xlm-roberta-large.json')
+save_result(result, '../result/pos_tagging/aug-xlm-roberta-large.json')
