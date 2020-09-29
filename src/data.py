@@ -1,3 +1,4 @@
+import json
 import regex
 from glob import glob
 from torch.utils.data import Dataset
@@ -8,7 +9,18 @@ class Sentence(object):
         self.conll_data = conll_data
         self.ids, self.words, self.tags, self.deps, self.dep_labels = \
             self.extract_info(conll_data)
-        
+    
+    def __str__(self):
+        return json.dumps(
+            {
+                'ids': self.ids,
+                'words': self.words, 
+                'tags': self.tags, 
+                'deps': self.deps, 
+                'dep_labels': self.dep_labels
+            }
+        )
+
     @staticmethod
     def extract_info(conll_data):
         filtered_conll_data = map(
@@ -34,7 +46,7 @@ class UniversalDependenciesDataset(Dataset):
                     current_conll_data = list()
             if len(current_conll_data) > 0:
                 self.data.append(Sentence(current_conll_data))
-    
+
     def __getitem__(self, index):
         return self.data[index]
 
