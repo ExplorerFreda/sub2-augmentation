@@ -81,7 +81,7 @@ meta_configs = dotdict.DotDict(
         }
     }
 )
-all_configs = list(search_hyperparams(dict(), meta_configs))[2:4]
+all_configs = list(search_hyperparams(dict(), meta_configs))
 
 log_folder = '~/logs/postag_logs/'
 os.system(f'mkdir -p {log_folder}')
