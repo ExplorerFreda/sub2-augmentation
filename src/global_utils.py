@@ -39,6 +39,7 @@ def search_hyperparams(current_hparams, dictionary):
 def slurm_job_babysit(executor, job_func, jobs, all_configs):
     resubmit_ids = list()
     new_configs = list()
+    problematic_jobs = list()
     cnt_complete = 0
     bar = tqdm(jobs)
     for idx, job in enumerate(bar):
@@ -47,6 +48,7 @@ def slurm_job_babysit(executor, job_func, jobs, all_configs):
                 state != 'PENDING' and state != 'UNKNOWN':
             new_configs.append(all_configs[idx])
             resubmit_ids.append(idx)
+            problematic_jobs.append(job)
         elif state == 'COMPLETED':
             cnt_complete += 1
         bar.set_description(
@@ -60,7 +62,7 @@ def slurm_job_babysit(executor, job_func, jobs, all_configs):
         new_jobs = executor.map_array(job_func, new_configs)
         for idx, job in enumerate(new_jobs):
             jobs[resubmit_ids[idx]] = job
-    return cnt_complete
+    return cnt_complete, problematic_jobs
 
 
 class AverageMeter(object):
