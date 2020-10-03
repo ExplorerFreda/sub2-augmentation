@@ -116,6 +116,8 @@ def train(configs):
         loss_meter = AverageMeter()
         bar = tqdm(dataloader['train'])
         eval_chunk = len(bar) // configs.validation_per_epoch
+        if eval_chunk == 0:
+            eval_chunk = 1
         for i, batch in enumerate(bar):
             targets = torch.tensor(dataset['train'].get_tag_ids(
                 batch)).long().to(configs.device).view(-1)

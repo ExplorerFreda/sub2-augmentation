@@ -8,7 +8,6 @@ low_resource_language_list = [
     # 'ja_ktc', 'la', 'la_itt', 'la_proiel', 
 ]
 extra_low_resource_language_list_ud26 = [
-    'be_hse', 'bxr_bdt', 'cop_scriptorium', 'en_gumreddit', 'gl_treegal',
-    'qhe_hiencs', 'kk_ktb', 'lt_hse', 'olo_kkpp', 'mr_ufal', 'orv_rnc',
-    'ta_ttb', 'te_mtg', 'hsb_ufal', 'cy_ccg'
+    'be_hse', 'cop_scriptorium', 'en_gumreddit', 'qhe_hiencs', 'lt_hse',
+    'mr_ufal', 'ta_ttb', 'te_mtg'
 ]
