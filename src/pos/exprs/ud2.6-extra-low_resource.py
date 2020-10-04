@@ -96,8 +96,8 @@ jobs = executor.map_array(train, all_configs)
 from IPython import embed; embed(using=False)  # for babysit jobs
 result = [job.result() for job in jobs]
 os.system(f'mkdir -p ../result/pos_tagging/extra-low_resource')
-for model_name in meta_configs.model_name:
-    for augment in meta_configs.augment:
+for model_name in meta_configs.model_name['values']:
+    for augment in meta_configs.augment['values']:
         sub_result = filter(
             lambda x: x[0].model_name == model_name and x[0].augment \
                 == augment,
