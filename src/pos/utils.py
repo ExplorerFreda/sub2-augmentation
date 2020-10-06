@@ -7,7 +7,7 @@ low_resource_language_list = [
 ]
 extra_language_list_ud12 = [
     'ar', 'cu',  'fi_ftb', 'got', 'grc', 'grc_proiel', 
-    'ja_ktc', 'la', 'la_itt', 'la_proiel'
+    'la', 'la_itt', 'la_proiel'
 ]
 extra_low_resource_language_list_ud26 = [
     'be_hse', 'cop_scriptorium', 'lt_hse', 'mr_ufal', 'ta_ttb', 'te_mtg'
