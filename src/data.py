@@ -1,4 +1,5 @@
 import json
+import nltk
 import regex
 from glob import glob
 from torch.utils.data import Dataset
@@ -80,23 +81,84 @@ class UniversalDependenciesDataset(Dataset):
         return self.__pad__(tag_ids, -1)
 
 
+class PTBDataset(Dataset):
+    def __init__(self, data_path_template, use_spans=True):
+        super(PTBDataset, self).__init__()
+        self.trees = list()
+        for path in glob(data_path_template):
+            for line in open(path):
+                self.trees.append(nltk.Tree.fromstring(line))
+        # preproc spans
+        self.use_spans = use_spans
+        self.spans = list()
+        if self.use_spans is True:
+            for tree in self.trees:
+                spans = list(self.extract_spans(tree))
+                for span in spans:
+                    self.spans.append((' '.join(tree.leaves()), *span))
+        else:
+            for tree in self.trees:
+                self.spans.append(
+                    (
+                        ' '.join(tree.leaves()), 
+                        0, len(tree.leaves()),
+                        tree.label()
+                    )
+                )
+    
+    @staticmethod
+    def extract_spans(tree, left=0):
+        if isinstance(tree, nltk.Tree): 
+            current_left = left
+            for child in tree:
+                for span in PTBDataset.extract_spans(child, current_left):
+                    yield span
+                current_left += 1 if isinstance(
+                    child, str) else len(child.leaves())
+            yield (left, left + len(tree.leaves()), tree.label())
+
+    def __len__(self):
+        return len(self.spans)
+
+    def __getitem__(self, index):
+        return self.spans[index]
+    
+    @classmethod
+    def collate_fn(cls, batch):
+        return list(zip(*batch))
+    
+
 if __name__ == '__main__':
+    from torch.utils.data import DataLoader
+    # PTB Test
+    phrases = set()
+    for split in ['train', 'dev', 'test']:
+        sst_dataset = PTBDataset(f'../data/sst/{split}.txt', use_spans=False)
+        for item in sst_dataset.spans:
+            phrases.add(' '.join(item[0].split()[item[1]: item[2]]))
+    print(len(phrases))
+    dataloader = DataLoader(
+        sst_dataset, batch_size=64, shuffle=False, 
+        collate_fn=sst_dataset.collate_fn
+    )
+    for batch in dataloader:
+        pass
+    # UD Test
     # Test 1: all UD as a joint dataset
-    dataset = UniversalDependenciesDataset(
+    ud_dataset = UniversalDependenciesDataset(
         '../data/*/*/*conllu',
         '../data/universal-dependencies-1.2/tags.txt'
     )
     # Test 2: data loader
-    from torch.utils.data import DataLoader
-    dataset = UniversalDependenciesDataset(
+    ud_dataset = UniversalDependenciesDataset(
         '../data/*/*English/*conllu',
         '../data/universal-dependencies-1.2/tags.txt'
     )
-    dataloader = DataLoader(
-        dataset, batch_size=64, shuffle=False, 
-        collate_fn=dataset.collate_fn
+    ud_dataloader = DataLoader(
+        ud_dataset, batch_size=64, shuffle=False, 
+        collate_fn=ud_dataset.collate_fn
     )
     # Test 3: tag ids
-    for batch in dataloader:
-        dataset.get_tag_ids(batch)
+    for batch in ud_dataloader:
+        ud_dataset.get_tag_ids(batch)
     from IPython import embed; embed(using=False)
