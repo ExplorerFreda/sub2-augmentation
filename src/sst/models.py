@@ -39,7 +39,7 @@ class SentimentClassifier(nn.Module):
             nn.Dropout(p=dropout_p),
             nn.Linear(self.feature_dim, hidden_dim),
             nn.ReLU(),
-            nn.Linear(self.hidden_dim, len(tagset))
+            nn.Linear(self.hidden_dim, len(tagset.values()))
         ]
         self.classifier = nn.Sequential(*layers).to(device)
     
@@ -130,7 +130,7 @@ if __name__ == '__main__':
         sst_dataset, batch_size=64, shuffle=False, 
         collate_fn=sst_dataset.collate_fn
     )
-    tagset = {str(i): i for i in range(1,6)}
+    tagset = {str(i): i-1 for i in range(1,6)}
     senti_classifier = SentimentClassifier('xlm-roberta-large', tagset)
     for batch in dataloader:
         output = senti_classifier.forward_batch(senti_classifier, batch)
