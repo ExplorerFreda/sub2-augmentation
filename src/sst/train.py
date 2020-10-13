@@ -59,7 +59,9 @@ def train(configs):
     for split in ['train', 'dev', 'test']:
         dataset[split] = PTBDataset(
             configs.data_path.format(split=split),
-            use_spans=configs.use_spans if split=='train' else False
+            use_spans=configs.use_spans if split=='train' else False,
+            span_min_length=configs.span_min_length \
+                if configs.span_min_length else 0
         )
         dataloader[split] = DataLoader(
             dataset[split], batch_size=configs.batch_size,
@@ -232,11 +234,15 @@ if __name__ == '__main__':
                 'flag': 'augment'
             },
             'use_spans': {
-                'values': [False],
+                'values': [True, False],
                 'flag': None
             },
             'use_attn': {
                 'values': [True],
+                'flag': None
+            },
+            'span_min_length': {
+                'values': [4],
                 'flag': None
             }
         }
