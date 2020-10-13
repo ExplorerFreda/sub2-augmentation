@@ -151,11 +151,13 @@ if __name__ == '__main__':
     for item in sst_dataset.spans:
         phrases.add(' '.join(item[0].split()[item[1]: item[2]]))
     dataloader = DataLoader(
-        sst_dataset, batch_size=64, shuffle=False, 
+        sst_dataset, batch_size=64, shuffle=False,
         collate_fn=sst_dataset.collate_fn
     )
-    tagset = {str(i): i-1 for i in range(1,6)}
-    senti_classifier = SentimentClassifier('xlm-roberta-large', tagset)
+    tagset = {str(i): i for i in range(5)}
+    senti_classifier = SentimentClassifier(
+        'xlm-roberta-large', tagset, use_attn=True
+    )
     for batch in dataloader:
         output = senti_classifier.forward_batch(senti_classifier, batch)
         assert output.shape[-1] == 5

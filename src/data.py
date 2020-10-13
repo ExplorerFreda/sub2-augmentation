@@ -82,7 +82,7 @@ class UniversalDependenciesDataset(Dataset):
 
 
 class PTBDataset(Dataset):
-    def __init__(self, data_path_template, use_spans=True):
+    def __init__(self, data_path_template, use_spans=True, span_min_length=1):
         super(PTBDataset, self).__init__()
         self.trees = list()
         for path in glob(data_path_template):
@@ -90,12 +90,17 @@ class PTBDataset(Dataset):
                 self.trees.append(nltk.Tree.fromstring(line))
         # preproc spans
         self.use_spans = use_spans
+        self.span_min_length = span_min_length
         self.spans = list()
         if self.use_spans is True:
             for tree in self.trees:
                 spans = list(self.extract_spans(tree))
                 for span in spans:
-                    self.spans.append((' '.join(tree.leaves()), *span))
+                    left = span[0]
+                    right = span[1]
+                    if right - left >= self.span_min_length or \
+                            right - left == len(tree.leaves()):
+                        self.spans.append((' '.join(tree.leaves()), *span))
         else:
             for tree in self.trees:
                 self.spans.append(
@@ -133,10 +138,13 @@ if __name__ == '__main__':
     # PTB Test
     phrases = set()
     for split in ['train', 'dev', 'test']:
-        sst_dataset = PTBDataset(f'../data/sst/{split}.txt', use_spans=False)
+        sst_dataset = PTBDataset(
+            f'../data/sst/{split}.txt', 
+            use_spans=True, span_min_length=4
+        )
         for item in sst_dataset.spans:
             phrases.add(' '.join(item[0].split()[item[1]: item[2]]))
-    print(len(phrases))
+        print(len(sst_dataset), len(phrases))
     dataloader = DataLoader(
         sst_dataset, batch_size=64, shuffle=False, 
         collate_fn=sst_dataset.collate_fn
