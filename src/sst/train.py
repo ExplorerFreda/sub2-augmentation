@@ -71,7 +71,8 @@ def train(configs):
     # build models
     model = SentimentClassifier(
         configs.model_name, tagset, configs.device, 
-        configs.hidden_dim, configs.dropout_p, configs.fine_tune
+        configs.hidden_dim, configs.dropout_p, configs.fine_tune, 
+        configs.use_attn
     )
     if configs.device == 'cuda':
         model = nn.DataParallel(model)
@@ -232,6 +233,10 @@ if __name__ == '__main__':
             },
             'use_spans': {
                 'values': [False],
+                'flag': None
+            },
+            'use_attn': {
+                'values': [True],
                 'flag': None
             }
         }

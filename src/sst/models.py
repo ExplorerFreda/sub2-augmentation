@@ -8,7 +8,8 @@ from transformers import AutoTokenizer, AutoModel
 class SentimentClassifier(nn.Module):
     def __init__(
             self, model_name, tagset, device='cuda',
-            hidden_dim=1024, dropout_p=0.2, fine_tune=False
+            hidden_dim=1024, dropout_p=0.2, fine_tune=False,
+            use_attn=False
         ):
         super(SentimentClassifier, self).__init__()
         self.device = device
@@ -16,6 +17,7 @@ class SentimentClassifier(nn.Module):
         self.hidden_dim = hidden_dim
         self.dropout_p = dropout_p
         self.tagset = tagset
+        self.use_attn = use_attn
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         if self.tokenizer.bos_token is None:
@@ -34,7 +36,11 @@ class SentimentClassifier(nn.Module):
         self.layer_weight = nn.Parameter(
             torch.zeros(1, self.layer_num).to(device)
         )
-        self.feature_dim = self.pretrained_model.config.hidden_size * 2
+        if self.use_attn:
+            self.feature_dim = self.pretrained_model.config.hidden_size
+            self.attn_weight = nn.Linear(self.feature_dim, 1).to(device)
+        else:   # use endpoint concatenation
+            self.feature_dim = self.pretrained_model.config.hidden_size * 2
         layers = [
             nn.Dropout(p=dropout_p),
             nn.Linear(self.feature_dim, hidden_dim),
@@ -102,9 +108,27 @@ class SentimentClassifier(nn.Module):
         subword_features = (
             self.layer_weight.softmax(dim=1) * layerwise_output
         ).sum(-1)
-        left_features = subword_features[torch.arange(len(lbs)), lbs]
-        right_features = subword_features[torch.arange(len(rbs)), rbs]
-        span_features = torch.cat([left_features, right_features], dim=-1)
+        if self.use_attn:
+            pos_attn_masks = torch.zeros(
+                subword_features.shape[0], 
+                subword_features.shape[1]
+            )
+            for i, rb in enumerate(rbs):
+                pos_attn_masks[i, :rb+1] = 1
+                pos_attn_masks[i, :lbs[i]] = 0
+            pos_attn_masks = pos_attn_masks.unsqueeze(-1).to(
+                subword_features.device)
+            pos_attn_weights = (
+                self.attn_weight(subword_features) \
+                    - 1e10 * (1 - pos_attn_masks)
+            ).softmax(1)
+            span_features = (
+                pos_attn_weights * subword_features
+            ).sum(1) / pos_attn_masks.sum(1)
+        else:
+            left_features = subword_features[torch.arange(len(lbs)), lbs]
+            right_features = subword_features[torch.arange(len(rbs)), rbs]
+            span_features = torch.cat([left_features, right_features], dim=-1)
         logits = self.classifier(span_features)
         return logits
 
