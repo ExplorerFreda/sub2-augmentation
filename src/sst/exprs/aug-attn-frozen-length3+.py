@@ -72,7 +72,7 @@ meta_configs = dotdict.DotDict(
             'flag': None
         },
         'augment': {
-            'values': [False],
+            'values': [True],
             'flag': 'augment'
         },
         'use_spans': {
@@ -103,4 +103,4 @@ from IPython import embed; embed(using=False)
 
 result = [job.result() for job in jobs]
 os.system(f'mkdir -p ../result/sst/')
-save_result(result, '../result/sst/attn_frozen.json')
+save_result(result, '../result/sst/aug_attn_frozen.json')

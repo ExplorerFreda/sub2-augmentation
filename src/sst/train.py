@@ -11,6 +11,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from augmenters import SSTAugmenter
 from data import PTBDataset
 from global_utils import search_hyperparams, AverageMeter, save_result, \
     save_checkpoint, load_checkpoint
@@ -68,7 +69,7 @@ def train(configs):
             shuffle=(split == 'train'), collate_fn=dataset[split].collate_fn
         )
     if configs.augment:
-        pass  # TODO(freda): add augmenter
+        augmenter = SSTAugmenter(dataset['train'])
 
     # build models
     model = SentimentClassifier(
@@ -230,7 +231,7 @@ if __name__ == '__main__':
                 'flag': None
             },
             'augment': {
-                'values': [False],
+                'values': [True],
                 'flag': 'augment'
             },
             'use_spans': {

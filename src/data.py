@@ -92,8 +92,11 @@ class PTBDataset(Dataset):
         self.use_spans = use_spans
         self.span_min_length = span_min_length
         self.spans = list()
+        self.add_spans(self.trees)
+    
+    def add_spans(self, trees):
         if self.use_spans is True:
-            for tree in self.trees:
+            for tree in trees:
                 spans = list(self.extract_spans(tree))
                 for span in spans:
                     left = span[0]
@@ -102,7 +105,7 @@ class PTBDataset(Dataset):
                             right - left == len(tree.leaves()):
                         self.spans.append((' '.join(tree.leaves()), *span))
         else:
-            for tree in self.trees:
+            for tree in trees:
                 self.spans.append(
                     (
                         ' '.join(tree.leaves()), 
