@@ -98,16 +98,16 @@ def save_result(data, fname):
     fout.close()
 
 
-def collect_result(data, collect_key='lang'):
+def collect_result(data, collect_keys=('lang')):
     result = collections.defaultdict(None)
     for line in open(data):
         configs, best_dev, test = json.loads(line)
-        key = configs[collect_key]
-        if key in result:
-            if best_dev > result[key][0]:
-                result[key] = (best_dev, test)
+        keys = tuple([configs[collect_key] for collect_key in collect_keys])
+        if keys in result:
+            if best_dev > result[keys][0]:
+                result[keys] = (best_dev, test)
         else:
-            result[key] = (best_dev, test)
+            result[keys] = (best_dev, test)
     return result
 
 
