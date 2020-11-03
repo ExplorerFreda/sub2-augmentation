@@ -81,6 +81,7 @@ class UniversalDependenciesDataset(Dataset):
         return self.__pad__(tag_ids, -1)
 
 
+# Constituency Parsing Dataset, including SST
 class PTBDataset(Dataset):
     def __init__(self, data_path_template, use_spans=True, span_min_length=1):
         super(PTBDataset, self).__init__()
