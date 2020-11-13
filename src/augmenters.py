@@ -4,6 +4,8 @@ import random
 from nltk import Tree
 from tqdm import tqdm
 
+from data import Sentence
+
 
 class Augmenter(object):
     def __init__(self, dataset):
@@ -146,8 +148,118 @@ class SSTAugmenter(Augmenter):
             current_left += len_child
         return Tree(tree.label(), new_children)
 
+
+class DependencyParsingAugmenter(Augmenter):
+    def __init__(self, dataset, n_gram=4):
+        super(DependencyParsingAugmenter, self).__init__(dataset)
+        self.k = n_gram
+        self.build_subtree_table(dataset)
+
+    def reset(self):
+        self.dataset = copy.deepcopy(self.original_dataset)
+
+    def build_subtree_table(self, dataset):
+        # augment with length restriction
+        # TODO (freda) consider removing the restriction? 
+        self.subtrees = collections.defaultdict(list)
+        self.tree_infos = list()
+        self.subtree_list = list()
+        for i, sent in enumerate(dataset):
+            tree_info = collections.defaultdict(dict)
+            for j in sent.ids:
+                tree_info[j]['left'] = j
+                tree_info[j]['right'] = j
+            tree_info[0] = {'left': 1e10, 'right': 0}
+            for k, j in enumerate(sent.ids):
+                parent = sent.deps[k]
+                tree_info[parent]['left'] = min(
+                    tree_info[j]['left'], tree_info[parent]['left']
+                )
+            for k, j in reversed(list(enumerate(sent.ids))):
+                parent = sent.deps[k]
+                tree_info[parent]['right'] = max(
+                    tree_info[j]['right'], tree_info[parent]['right']
+                )
+            for k, j in enumerate(sent.ids):
+                length = tree_info[j]['right'] - tree_info[j]['left'] + 1
+                if length <= 1:
+                    continue
+                label = sent.dep_labels[k]
+                self.subtrees[length, label].append(
+                    [i, k, tree_info[j]['left']-1, tree_info[j]['right']]
+                )
+            self.tree_infos.append(tree_info)
+        for key in self.subtrees:
+            for subtree in self.subtrees[key]:
+                self.subtree_list.append(subtree + list(key))
+
+    def augment(self, size=None):
+        # self.ids, self.words, self.tags, self.deps, self.dep_labels
+        if size is None:
+            size = len(self.dataset) * 2
+        bar = tqdm(range(size - len(self.dataset)))
+        bar.set_description(f'Running {type(self)}')
+        while len(self.dataset) < size:
+            position = random.randint(0, len(self.subtree_list) - 1)
+            original_subtree = self.subtree_list[position]
+            length = original_subtree[-2]
+            label = original_subtree[-1]
+            substitution_position = random.randint(
+                0, len(self.subtrees[length, label]) - 1
+            )
+            substitution_subtree = self.subtrees[
+                length, label][substitution_position]
+            if substitution_subtree == original_subtree[:4]:
+                continue
+            ids = list(self.dataset[original_subtree[0]].ids)
+            words = list(self.dataset[original_subtree[0]].words)
+            tags = list(self.dataset[original_subtree[0]].tags)
+            deps = list(self.dataset[original_subtree[0]].deps)
+            dep_labels = list(self.dataset[original_subtree[0]].dep_labels)
+            orig_range = original_subtree[2:4]
+            sub_range = substitution_subtree[2:4]
+            words[orig_range[0]:orig_range[1]] = copy.deepcopy(
+                self.dataset[substitution_subtree[0]].words[
+                    sub_range[0]:sub_range[1]
+                ]
+            )
+            tags[orig_range[0]:orig_range[1]] = copy.deepcopy(
+                self.dataset[substitution_subtree[0]].tags[
+                    sub_range[0]:sub_range[1]
+                ]
+            )
+            orig_parent = self.dataset[original_subtree[0]].deps[
+                original_subtree[1]
+            ]
+            sub_deps = [
+                x - sub_range[0] for x in self.dataset[
+                    substitution_subtree[0]].deps[sub_range[0]:sub_range[1]]
+            ]
+            deps[orig_range[0]:orig_range[1]] = [
+                x + orig_range[0] for x in sub_deps
+            ]
+            deps[substitution_subtree[1] - sub_range[0] + orig_range[0]] = \
+                orig_parent
+            dep_labels[orig_range[0]:orig_range[1]] = copy.deepcopy(
+                self.dataset[substitution_subtree[0]].dep_labels[
+                    sub_range[0]:sub_range[1]
+                ]
+            )
+            new_sent = Sentence.from_info(ids, words, tags, deps, dep_labels)
+            self.dataset.data.append(new_sent)
+        return self.dataset
+
     
 if __name__ == "__main__":
+    from data import UniversalDependenciesDataset
+    dep_dataset = UniversalDependenciesDataset(
+        '../data/universal_treebanks_v2.0/std/en/en-universal-dev.conll',
+        '../data/universal_treebanks_v2.0/std/tags.txt'
+    )
+    augmenter = DependencyParsingAugmenter(dep_dataset)
+    augmented_dataset = augmenter.augment()
+    from IPython import embed; embed(using=False)
+
     from data import PTBDataset
     random.seed(115)
     sst_dataset = PTBDataset(

@@ -6,10 +6,18 @@ from torch.utils.data import Dataset
 
 
 class Sentence(object):
-    def __init__(self, conll_data):
+    def __init__(self, conll_data=None):
         self.conll_data = conll_data
-        self.ids, self.words, self.tags, self.deps, self.dep_labels = \
-            self.extract_info(conll_data)
+        if conll_data is not None:
+            self.ids, self.words, self.tags, self.deps, self.dep_labels = \
+                self.extract_info(conll_data)
+    
+    @classmethod
+    def from_info(cls, ids, words, tags, deps, dep_labels):
+        sent = cls()
+        sent.ids, sent.words, sent.tags, sent.deps, sent.dep_labels = \
+            ids, words, tags, deps, dep_labels
+        return sent
     
     def __str__(self):
         return json.dumps(
