@@ -39,6 +39,17 @@ class Sentence(object):
         ids, words, tags, deps, dep_labels = zip(*filtered_conll_data)
         return ids, words, tags, deps, dep_labels
 
+    def print(self, fout):
+        for i, ids in enumerate(self.ids):
+            info = ['_'] * 10
+            info[0] = str(self.ids[i])
+            info[1] = self.words[i]
+            info[3] = self.tags[i]
+            info[6] = str(self.deps[i])
+            info[7] = self.dep_labels[i]
+            print('\t'.join(info), file=fout)
+        print(file=fout)
+
 
 class UniversalDependenciesDataset(Dataset):
     def __init__(self, data_path_template, tagset_path):
@@ -55,6 +66,12 @@ class UniversalDependenciesDataset(Dataset):
                     current_conll_data = list()
             if len(current_conll_data) > 0:
                 self.data.append(Sentence(current_conll_data))
+    
+    def print(self, file_name):
+        with open(file_name, 'w') as fout:
+            for sent in self.data:
+                sent.print(fout)
+            fout.close()
 
     def __getitem__(self, index):
         return self.data[index]
