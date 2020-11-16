@@ -1,8 +1,10 @@
 import collections
 import copy
 import random
+import regex
 from nltk import Tree
 from tqdm import tqdm
+from transformers import AutoTokenizer, AutoModelForMaskedLM
 
 from data import Sentence
 
@@ -165,6 +167,23 @@ class DependencyParsingAugmenter(Augmenter):
         self.tree_infos = list()
         self.subtree_list = list()
         for i, sent in enumerate(dataset):
+            # drop if sentence has X-edges
+            x_edge = False
+            for k, j in enumerate(sent.ids):
+                assert k == j - 1
+                parent = sent.deps[k]
+                if parent == 0:
+                    continue
+                left, right = min(j, parent), max(j, parent)
+                for id_p in range(left + 1, right):
+                    parent_p = sent.deps[id_p - 1]
+                    if parent_p < left or parent_p > right:
+                        x_edge = True
+                if x_edge:
+                    break
+            if x_edge:
+                continue
+            # collect info 
             tree_info = collections.defaultdict(dict)
             for j in sent.ids:
                 tree_info[j]['left'] = j
@@ -249,8 +268,65 @@ class DependencyParsingAugmenter(Augmenter):
             self.dataset.data.append(new_sent)
         return self.dataset
 
-    
+
+class POSTagBaselineAugmenter(Augmenter):
+    def __init__(self, dataset, 
+            language_model='bert-large-cased-whole-word-masking'):
+        super(POSTagBaselineAugmenter, self).__init__(dataset)
+        self.tokenizer = AutoTokenizer.from_pretrained(language_model)
+        self.model = AutoModelForMaskedLM.from_pretrained(language_model)
+
+    def reset(self):
+        self.dataset = copy.deepcopy(self.original_dataset)
+
+    def augment(self, size=None):
+        if size is None:
+            size = len(self.dataset) * 2
+        bar = tqdm(range(size - len(self.dataset)))
+        bar.set_description(f'Running {type(self)}')
+        while len(self.dataset) < size:
+            sent_id = random.randint(0, len(self.dataset) - 1)
+            sub_sentence = copy.deepcopy(self.dataset[sent_id])
+            words = list(sub_sentence.words)
+            position = random.randint(0, len(words)-1)
+            orig_token = words[position]
+            # only perform SUB on word tokens
+            if not regex.match('.*[a-z].*', orig_token):
+                continue
+            # compute substitution and output a different sub candidate
+            words[position] = self.tokenizer.mask_token
+            inputs = self.tokenizer(' '.join(words), return_tensors='pt')
+            subtoken_position = (
+                inputs['input_ids'][0] == self.tokenizer.mask_token_id
+            ).long().argmax().item()
+            labels = inputs['input_ids']
+            outputs = self.model(**inputs, labels=labels)[1][0]
+            while True:
+                subtoken_id = outputs[subtoken_position].argmax().item()
+                subtoken = self.tokenizer.convert_ids_to_tokens(subtoken_id)
+                if subtoken != orig_token:
+                    break
+                else:
+                    outputs[subtoken_position][subtoken_id] = -1e10
+            words[position] = subtoken
+            sub_sentence.words = tuple(words)
+            self.dataset.data.append(sub_sentence)
+            bar.update()
+        return self.dataset
+
+
 if __name__ == "__main__":
+    # POS tagging augmenter unit test
+    from data import UniversalDependenciesDataset
+    dataset = UniversalDependenciesDataset(
+        '../data/*/*/en*dev*conllu',
+        '../data/universal-dependencies-1.2/tags.txt'
+    )
+    augmenter = POSTagBaselineAugmenter(dataset)
+    augmented_dataset = augmenter.augment()
+    from IPython import embed; embed(using=False)
+
+    # Dep parsing unit test
     from data import UniversalDependenciesDataset
     dep_dataset = UniversalDependenciesDataset(
         '../data/universal_treebanks_v2.0/std/en/en-universal-dev.conll',
@@ -260,6 +336,7 @@ if __name__ == "__main__":
     augmented_dataset = augmenter.augment()
     from IPython import embed; embed(using=False)
 
+    # PTB augmenter unit test
     from data import PTBDataset
     random.seed(115)
     sst_dataset = PTBDataset(
@@ -269,6 +346,7 @@ if __name__ == "__main__":
     sst_augmented_dataset = sst_augmenter.augment()
     from IPython import embed; embed(using=False)
    
+    # POS tagging augmenter unit test
     from data import UniversalDependenciesDataset
     dataset = UniversalDependenciesDataset(
         '../data/*/*/en*train*conllu',
