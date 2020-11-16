@@ -3,6 +3,8 @@ import nltk
 import regex
 from glob import glob
 from torch.utils.data import Dataset
+from tqdm import tqdm
+from transformers import AutoTokenizer 
 
 
 class Sentence(object):
@@ -104,6 +106,15 @@ class UniversalDependenciesDataset(Dataset):
             for sent in sentences
         ]
         return self.__pad__(tag_ids, -1)
+
+    def filter_length_for_model(self, model='xlm-roberta-large'):
+        tokenizer = AutoTokenizer.from_pretrained(model)
+        data = list()
+        for i, sent in enumerate(tqdm(self.data)):
+            length = len(tokenizer.tokenize(' '.join(sent.words)))
+            if length < tokenizer.model_max_length:
+                data.append(sent)
+        self.data = data
 
 
 # Constituency Parsing Dataset, including SST

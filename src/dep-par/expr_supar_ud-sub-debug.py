@@ -85,7 +85,7 @@ meta_configs = dotdict.DotDict(
     {
         'data_path': {
             'values': glob(
-                f'{curr_dir}/../../data/universal-dependencies-1.2/*'
+                f'{curr_dir}/../../data/universal-dependencies-1.2/deb*'
             ),
             'flag': None
         }
@@ -103,6 +103,6 @@ executor.update_parameters(
     cpus_per_task=8, gpus_per_node=1, nodes=1, slurm_mem='128G',
     slurm_array_parallelism=2048
 )
-jobs = executor.map_array(run_parser, all_configs)
+# jobs = executor.map_array(run_parser, all_configs)
 from IPython import embed; embed(using=False)  # for babysit jobs
 result = [job.result() for job in jobs]

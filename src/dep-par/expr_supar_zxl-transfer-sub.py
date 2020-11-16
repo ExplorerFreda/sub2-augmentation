@@ -1,7 +1,9 @@
 import dotdict
 import os
+import regex
 import submitit
 import sys
+import tempfile
 from glob import glob
 from pathlib import Path
 
@@ -44,28 +46,53 @@ run_command = """ python -m supar.cmds.biaffine_dependency train -b \\
 """
 
 
+def setup_data(data_path, lang):
+    train_files = list(
+        filter(lambda x:len(regex.findall(f'/{lang}-', x)) == 0, 
+        glob(f'{data_path}/*/*train.conll'))
+    )
+    dev_files = list(
+        filter(lambda x:len(regex.findall(f'/{lang}-', x)) == 0, 
+        glob(f'{data_path}/*/*dev.conll'))
+    )
+    test_files = list(
+        filter(lambda x:len(regex.findall(f'/{lang}-', x)) > 0, 
+        glob(f'{data_path}/*/*test.conll'))
+    )
+    tmpdir = tempfile.TemporaryDirectory(prefix='zxl-transfer')
+    os.system(f'cat {" ".join(train_files)} > {tmpdir.name}/train.conll')
+    os.system(f'cat {" ".join(dev_files)} > {tmpdir.name}/dev.conll')
+    os.system(f'cat {" ".join(test_files)} > {tmpdir.name}/test.conll')
+    return f'{tmpdir.name}/train.conll', f'{tmpdir.name}/dev.conll', \
+        f'{tmpdir.name}/test.conll', tmpdir
+
+
 def run_parser(configs):
     configs = dotdict.DotDict(configs)
     config_ini = config_template
     configs.path = '-'.join(
         [f'{configs[key].split("/")[-1]}' for key in sorted(configs.keys())]
     )
-    try:
-        configs.train_data = glob(f'{configs.data_path}/*train.conllu')[0]
-        configs.dev_data = glob(f'{configs.data_path}/*dev.conllu')[0]
-        configs.test_data = glob(f'{configs.data_path}/*test.conllu')[0]
-    except:
-        return None
-    # static augmentation: load and augment the training set
+    configs.train_data, configs.dev_data, configs.test_data, \
+        tmpdir = setup_data(configs.data_path, configs.lang)
     training_dataset = UniversalDependenciesDataset(
-        configs.train_data, 
-        f'{os.path.dirname(configs.data_path)}/tags.txt'
+        configs.train_data, f'{configs.data_path}/tags.txt'
     )
     augmenter = DependencyParsingAugmenter(training_dataset)
     augmented_dataset = augmenter.augment()
     augmented_dataset.filter_length_for_model('xlm-roberta-large')
-    augmented_dataset.print(configs.train_data + '.sub')
-    configs.train_data = configs.train_data + '.sub'
+    augmented_dataset.print(configs.train_data)
+    dev_dataset = UniversalDependenciesDataset(
+        configs.dev_data, f'{configs.data_path}/tags.txt'
+    )
+    dev_dataset.filter_length_for_model('xlm-roberta-large')
+    dev_dataset.print(configs.dev_data)
+    test_dataset = UniversalDependenciesDataset(
+        configs.test_data, f'{configs.data_path}/tags.txt'
+    )
+    test_dataset.filter_length_for_model('xlm-roberta-large')
+    test_dataset.print(configs.test_data)
+
     configs.path = f'{Path.home()}/tmp/dep-par/supar-ud-sub/{configs.path}'
     os.system(f'mkdir -p {configs.path}')
     with open(f'{configs.path}/config.ini', 'w') as fout:
@@ -77,16 +104,21 @@ def run_parser(configs):
         data_dev=configs.dev_data, data_test=configs.test_data
     ))
     results = open(f'{configs.path}/model.train.log').readlines()[-4:]
+    tmpdir.cleanup()
     return results
 
 
 curr_dir = os.path.dirname(os.path.realpath(__file__))
 meta_configs = dotdict.DotDict(
     {
+        'lang': {
+            'values': ['de', 'es', 'fr', 'it', 'pt', 'sv'],
+            'flag': None
+        }, 
         'data_path': {
-            'values': glob(
-                f'{curr_dir}/../../data/universal-dependencies-1.2/*'
-            ),
+            'values': [
+                f'{curr_dir}/../../data/universal_treebanks_v2.0/schuster'
+            ],
             'flag': None
         }
     }
