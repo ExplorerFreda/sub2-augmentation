@@ -323,7 +323,57 @@ class DependencyParsingBaselineAugmenter(POSTagBaselineAugmenter):
         )
 
 
+class POSTagJointAugmenter(Augmenter):
+    def __init__(self, dataset):
+        super(POSTagJointAugmenter, self).__init__(dataset)
+        self.sub_augmenter = POSTagAugmenter(dataset)
+        self.synonym_augmenter = POSTagBaselineAugmenter(dataset)
+
+    def reset(self):
+        self.dataset = copy.deepcopy(self.original_dataset)
+
+    def augment(self, size=None):
+        if size is None:
+            size = len(self.dataset) * 2
+        size_per_method = len(self.dataset) + (size - len(self.dataset)) // 2
+        sub_augs = self.sub_augmenter.augment(size_per_method)
+        synonym_augs = self.synonym_augmenter.augment(size_per_method)
+        self.dataset += sub_augs[len(self.dataset):] + \
+            synonym_augs[len(self.dataset):]
+        return self.dataset
+
+
+class DependencyParsingJointAugmenter(POSTagJointAugmenter):
+    def __init__(self, dataset):
+        super(POSTagJointAugmenter, self).__init__(dataset)
+        self.sub_augmenter = DependencyParsingAugmenter(dataset)
+        self.synonym_augmenter = DependencyParsingBaselineAugmenter(dataset)
+
+    def reset(self):
+        self.dataset = copy.deepcopy(self.original_dataset)
+
+    def augment(self, size=None):
+        if size is None:
+            size = len(self.dataset) * 2
+        size_per_method = len(self.dataset) + (size - len(self.dataset)) // 2
+        sub_augs = self.sub_augmenter.augment(size_per_method)
+        synonym_augs = self.synonym_augmenter.augment(size - size_per_method)
+        self.dataset += sub_augs[len(self.dataset):] + \
+            synonym_augs[len(self.dataset):]
+        return self.dataset
+
+
 if __name__ == "__main__":
+    # Joint augmenter unit test
+    from data import UniversalDependenciesDataset
+    dataset = UniversalDependenciesDataset(
+        '../data/*/*/en*dev*conllu',
+        '../data/universal-dependencies-1.2/tags.txt'
+    )
+    augmenter = DependencyParsingJointAugmenter(dataset)
+    augmented_dataset = augmenter.augment()
+    from IPython import embed; embed(using=False)
+
     # POS tagging augmenter unit test
     from data import UniversalDependenciesDataset
     dataset = UniversalDependenciesDataset(
