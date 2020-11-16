@@ -81,6 +81,12 @@ class UniversalDependenciesDataset(Dataset):
     def __len__(self):
         return len(self.data)
 
+    def cut(self, length=None):
+        if length is None:
+            return 
+        else:
+            self.data = self.data[:length]
+
     @staticmethod
     def is_data_line(line):
         items = line.split('\t') 

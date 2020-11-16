@@ -11,7 +11,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from augmenters import POSTagAugmenter
+from augmenters import POSTagAugmenter, POSTagBaselineAugmenter, \
+    POSTagJointAugmenter
 from data import UniversalDependenciesDataset
 from global_utils import search_hyperparams, AverageMeter, save_result, \
     save_checkpoint, load_checkpoint
@@ -50,6 +51,7 @@ def train(configs):
     torch.manual_seed(configs.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(configs.seed)
+    random.seed(configs.seed)
 
     # load dataset 
     dataset = collections.defaultdict(None)
@@ -59,13 +61,27 @@ def train(configs):
             configs.data_path.format(lang=configs.lang, split=split),
             configs.tagset_path
         )
+        if split == 'train':
+            if configs.orig_size is not None:
+                dataset[split].cut(configs.orig_size)
+            if configs.augment:
+                assert configs.augment_method is not None
+                if configs.augment_method == 'sub':
+                    augmenter = POSTagAugmenter(dataset[split])
+                elif configs.augment_method == 'synonym':
+                    augmenter = POSTagBaselineAugmenter(dataset[split])
+                else:
+                    assert configs.augment_method == 'joint'
+                    augmenter = POSTagJointAugmenter(dataset[split])
+                dataset[split] = augmenter.augment(
+                    configs.augment_times * configs.orig_size
+                )
+        elif split == 'dev' and configs.orig_size is not None:
+            dataset[split].cut(configs.orig_size // 10)
         dataloader[split] = DataLoader(
             dataset[split], batch_size=configs.batch_size,
             shuffle=(split == 'train'), collate_fn=dataset[split].collate_fn
         )
-    if configs.augment:
-        augmenter = POSTagAugmenter(dataset['train'])
-
     # build models
     model = POSTagger(
         configs.model_name, dataset['train'].tag2id, configs.device, 
@@ -102,15 +118,6 @@ def train(configs):
 
     # train
     for epoch_id in range(start_epoch_id+1, configs.epochs):
-        # augment training set if applicable 
-        random.seed(epoch_id * configs.seed)
-        if configs.augment:
-            augmenter.reset()
-            dataset['train'] = augmenter.augment()
-            dataloader['train'] = DataLoader(
-                dataset['train'], batch_size=configs.batch_size,
-                shuffle=True, collate_fn=dataset['train'].collate_fn
-            )
         # train model 
         model.train()
         loss_meter = AverageMeter()

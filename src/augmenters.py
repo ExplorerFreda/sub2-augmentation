@@ -338,8 +338,8 @@ class POSTagJointAugmenter(Augmenter):
         size_per_method = len(self.dataset) + (size - len(self.dataset)) // 2
         sub_augs = self.sub_augmenter.augment(size_per_method)
         synonym_augs = self.synonym_augmenter.augment(size_per_method)
-        self.dataset += sub_augs[len(self.dataset):] + \
-            synonym_augs[len(self.dataset):]
+        self.dataset.data += sub_augs.data[len(self.dataset):] + \
+            synonym_augs.data[len(self.dataset):]
         return self.dataset
 
 
@@ -358,8 +358,8 @@ class DependencyParsingJointAugmenter(POSTagJointAugmenter):
         size_per_method = len(self.dataset) + (size - len(self.dataset)) // 2
         sub_augs = self.sub_augmenter.augment(size_per_method)
         synonym_augs = self.synonym_augmenter.augment(size - size_per_method)
-        self.dataset += sub_augs[len(self.dataset):] + \
-            synonym_augs[len(self.dataset):]
+        self.dataset.data += sub_augs.data[len(self.dataset):] + \
+            synonym_augs.data[len(self.dataset):]
         return self.dataset
 
 
