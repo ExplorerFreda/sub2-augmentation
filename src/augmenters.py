@@ -53,7 +53,8 @@ class POSTagAugmenter(Augmenter):
             sub_sent_id, sub_start_id, sub_length = \
                 self.ngram_table[subseq_tag][sub_position]
             assert sub_length == length
-            subseq_words = self.dataset[sent_id].words[start_id:start_id+length]
+            subseq_words = self.dataset[sent_id].words[
+                start_id:start_id+length]
             sub_subseq_words = self.dataset[sub_sent_id].words[
                 sub_start_id:sub_start_id+sub_length]
             if subseq_words == sub_subseq_words:
@@ -313,6 +314,13 @@ class POSTagBaselineAugmenter(Augmenter):
             self.dataset.data.append(sub_sentence)
             bar.update()
         return self.dataset
+
+
+class DependencyParsingBaselineAugmenter(POSTagBaselineAugmenter):
+    def __init__(self, *args, **kwargs):
+        super(DependencyParsingBaselineAugmenter, self).__init__(
+            *args, **kwargs
+        )
 
 
 if __name__ == "__main__":
