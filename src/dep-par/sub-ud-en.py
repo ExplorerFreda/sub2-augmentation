@@ -86,7 +86,7 @@ def run_parser(configs):
         f'{os.path.dirname(configs.data_path)}/tags.txt'
     )
     if configs.orig_size is not None:
-        dev_dataset.cut(configs.orig_size // 10)
+        dev_dataset.cut(max(5, configs.orig_size // 10))
     configs.dev_data = f'{tmp_dir.name}/dev.conll'
     dev_dataset.print(configs.dev_data)
     # config saving path
@@ -123,12 +123,12 @@ meta_configs = dotdict.DotDict(
             'flag': None
         },
         'augment_times': {
-            'values': [2, 5, 10, 50, 100],
-            'flag': None
+            'values': [2, 5, 10, 50, 100, 200, 500, 200, 200],
+            'flag': 'augment'
         },
         'orig_size': {
-            'values': [10, 50, 100, 500, 1000],
-            'flag': None
+            'values': [10, 10, 10, 10, 10, 10, 10, 50, 100],
+            'flag': 'augment'
         }
     }
 )
