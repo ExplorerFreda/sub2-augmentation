@@ -98,7 +98,8 @@ class SentimentClassifier(nn.Module):
             sub_ids = ids[:, sid:sid+self.max_length]
             sub_attn_masks = attention_masks[:, sid:sid+self.max_length]
             _, _, sub_layerwise_output = self.pretrained_model(
-                sub_ids, sub_attn_masks, output_hidden_states=True
+                sub_ids, sub_attn_masks, output_hidden_states=True,
+                return_dict=False
             )
             sub_layerwise_output = torch.cat(
                 [x.unsqueeze(-1) for x in sub_layerwise_output], dim=-1
