@@ -139,7 +139,7 @@ class SSTAugmenter(Augmenter):
     def substitute_tree(tree, left, goal_left, length, subtree):
         tree_label = None if isinstance(tree, str) else tree.label()
         len_tree = 1 if isinstance(tree, str) else len(tree.leaves())
-        if left == goal_left and len_tree == len(subtree.leaves()):
+        if left == goal_left and len_tree == length:
             assert tree.label() == subtree.label()
             return copy.deepcopy(subtree)
         elif isinstance(tree, str):
@@ -156,6 +156,56 @@ class SSTAugmenter(Augmenter):
             len_child = 1 if isinstance(child, str) else len(child.leaves())
             current_left += len_child
         return Tree(tree.label(), new_children)
+
+
+class SSTFreeLengthAugmenter(SSTAugmenter):
+    def __init__(self, *args, **kwargs):
+        super(SSTFreeLengthAugmenter, self).__init__(*args, **kwargs)
+
+    def reset(self):
+        self.dataset = copy.deepcopy(self.original_dataset)
+
+    def build_subtree_table(self, dataset, span_length_range):
+        self.subtree_table = collections.defaultdict(list)
+        self.all_subtrees = list()
+        span_min_length, span_max_length = span_length_range
+        for i, tree in enumerate(tqdm(dataset.trees)):
+            tree_info = self.collect_subtrees(tree)
+            for subtree, left, length in tree_info:
+                if length < span_min_length or length > span_max_length:
+                    continue
+                subtree_info = (i, left, length, copy.deepcopy(subtree))
+                self.subtree_table[subtree.label()].append(subtree_info)
+                self.all_subtrees.append(subtree_info)
+
+    def augment(self, size=None):
+        if size is None:
+            size = len(self.dataset.trees) * 2
+        original_tree_size = len(self.dataset.trees)
+        bar = tqdm(range(size - len(self.dataset.trees)))
+        bar.set_description(f'Running {type(self)}')
+        while len(self.dataset.trees) < size:
+            position = random.randint(0, len(self.all_subtrees) - 1)
+            idx, left, length, subtree = self.all_subtrees[position]
+            sub_position = random.randint(
+                0, len(self.subtree_table[subtree.label()]) - 1
+            )
+            sub_idx, sub_left, sub_length, sub_subtree = self.subtree_table[
+                subtree.label()][sub_position]
+            assert subtree.label() == sub_subtree.label()
+            if ' '.join(sub_subtree.leaves()) == ' '.join(subtree.leaves()):
+                continue
+            try:
+                new_tree = self.substitute_tree(
+                    self.dataset.trees[idx], 0, left, length, sub_subtree
+                )
+            except:
+                print('erorr performing substitution.')
+                from IPython import embed; embed(using=False)
+            self.dataset.trees.append(new_tree)
+            bar.update()
+        self.dataset.add_spans(self.dataset.trees[original_tree_size:])
+        return self.dataset
 
 
 class DependencyParsingAugmenter(Augmenter):
@@ -371,13 +421,23 @@ class DependencyParsingJointAugmenter(POSTagJointAugmenter):
 
 if __name__ == "__main__":
     # PTB augmenter unit test
+
     from data import PTBDataset
+    
     random.seed(115)
     sst_dataset = PTBDataset(
-        f'../data/sst/train_c.txt', use_spans=True, span_min_length=4
+        f'../data/sst/train_cl.txt', use_spans=True, span_min_length=4
+    )
+    sst_free_augmenter = SSTFreeLengthAugmenter(sst_dataset)
+    sst_augmented_dataset = sst_free_augmenter.augment(100000)
+    from IPython import embed; embed(using=False)
+
+    random.seed(115)
+    sst_dataset = PTBDataset(
+        f'../data/sst/train_cl.txt', use_spans=True, span_min_length=4
     )
     sst_augmenter = SSTAugmenter(sst_dataset)
-    sst_augmented_dataset = sst_augmenter.augment()
+    sst_augmented_dataset = sst_augmenter.augment(100000)
     from IPython import embed; embed(using=False)
 
     # Joint augmenter unit test
