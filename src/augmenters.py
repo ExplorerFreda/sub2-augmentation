@@ -69,7 +69,9 @@ class POSTagAugmenter(Augmenter):
         
 
 class SSTAugmenter(Augmenter):
-    def __init__(self, dataset, span_min_length=4, span_max_length=20):
+    def __init__(
+                self, dataset, span_min_length=4, span_max_length=20
+            ):
         super(SSTAugmenter, self).__init__(dataset)
         self.rg = (span_min_length, span_max_length)
         self.build_subtree_table(dataset, self.rg)
@@ -121,9 +123,13 @@ class SSTAugmenter(Augmenter):
             assert sub_length == length
             if ' '.join(sub_subtree.leaves()) == ' '.join(subtree.leaves()):
                 continue
-            new_tree = self.substitute_tree(
-                self.dataset.trees[idx], 0, left, length, sub_subtree
-            )
+            try:
+                new_tree = self.substitute_tree(
+                    self.dataset.trees[idx], 0, left, length, sub_subtree
+                )
+            except:
+                print('erorr performing substitution.')
+                from IPython import embed; embed(using=False)
             self.dataset.trees.append(new_tree)
             bar.update()
         self.dataset.add_spans(self.dataset.trees[original_tree_size:])
@@ -138,7 +144,7 @@ class SSTAugmenter(Augmenter):
             return copy.deepcopy(subtree)
         elif isinstance(tree, str):
             return tree
-        elif left >= goal_left + length:
+        elif left > goal_left:
             return copy.deepcopy(tree)
         current_left = left
         new_children = list()
@@ -364,6 +370,16 @@ class DependencyParsingJointAugmenter(POSTagJointAugmenter):
 
 
 if __name__ == "__main__":
+    # PTB augmenter unit test
+    from data import PTBDataset
+    random.seed(115)
+    sst_dataset = PTBDataset(
+        f'../data/sst/train_c.txt', use_spans=True, span_min_length=4
+    )
+    sst_augmenter = SSTAugmenter(sst_dataset)
+    sst_augmented_dataset = sst_augmenter.augment()
+    from IPython import embed; embed(using=False)
+
     # Joint augmenter unit test
     from data import UniversalDependenciesDataset
     dataset = UniversalDependenciesDataset(
@@ -392,16 +408,6 @@ if __name__ == "__main__":
     )
     augmenter = DependencyParsingAugmenter(dep_dataset)
     augmented_dataset = augmenter.augment()
-    from IPython import embed; embed(using=False)
-
-    # PTB augmenter unit test
-    from data import PTBDataset
-    random.seed(115)
-    sst_dataset = PTBDataset(
-        f'../data/sst/train.txt', use_spans=True, span_min_length=4
-    )
-    sst_augmenter = SSTAugmenter(sst_dataset)
-    sst_augmented_dataset = sst_augmenter.augment()
     from IPython import embed; embed(using=False)
    
     # POS tagging augmenter unit test

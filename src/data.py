@@ -125,12 +125,22 @@ class UniversalDependenciesDataset(Dataset):
 
 # Constituency Parsing Dataset, including SST
 class PTBDataset(Dataset):
-    def __init__(self, data_path_template, use_spans=True, span_min_length=1):
+    def __init__(
+                self, data_path_template, use_spans=True, span_min_length=1,
+                preproc_method='g'
+            ):
         super(PTBDataset, self).__init__()
         self.trees = list()
         for path in glob(data_path_template):
             for line in open(path):
-                self.trees.append(nltk.Tree.fromstring(line))
+                tree = nltk.Tree.fromstring(line)
+                if 'g' in preproc_method:  # keep only class labels for roots
+                    tree.set_label(tree.label().split('-')[0])
+                if 'p' in preproc_method:  # keep only phrase labels for NTs
+                    for s in tree.subtrees():
+                        s.set_label(s.label().split('-')[-1])
+                tree.collapse_unary()
+                self.trees.append(tree)
         # preproc spans
         self.use_spans = use_spans
         self.span_min_length = span_min_length
