@@ -1,6 +1,7 @@
 import collections
 import copy
 import json
+import os
 import torch 
 from tqdm import tqdm
 
@@ -92,9 +93,14 @@ class AverageMeter(object):
 
 
 def save_result(data, fname):
+    existing_data = set()
+    if os.path.exists(fname):
+        for line in open(fname):
+            existing_data.add(line.strip())
     with open(fname, 'a') as fout:
         for item in data:
-            print(json.dumps(item), file=fout)
+            item_str = json.dumps(item, sort_keys=True)
+            print(item_str, file=fout)            
     fout.close()
 
 
