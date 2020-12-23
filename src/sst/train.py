@@ -16,7 +16,7 @@ from data import PTBDataset
 from global_utils import search_hyperparams, AverageMeter, save_result, \
     save_checkpoint, load_checkpoint
 
-from sst.models import SentimentClassifier
+from sst.models import MWayClassifider
 
 
 log_descripter = 'Epoch {epoch}, loss={curr_loss:.5f}, ' \
@@ -26,13 +26,13 @@ log_descripter = 'Epoch {epoch}, loss={curr_loss:.5f}, ' \
 def evaluate_accuracy(model, dataloader, tagset):
     model.eval()
     device = model.device if isinstance(
-        model, SentimentClassifier) else model.module.device
+        model, MWayClassifider) else model.module.device
     num, denom = 0, 0
     with torch.no_grad():
         for batch in dataloader:
             targets = torch.tensor(
                 [tagset[x] for x in batch[-1]]).long().view(-1)
-            logits = SentimentClassifier.forward_batch(model, batch).view(
+            logits = MWayClassifider.forward_batch(model, batch).view(
                 targets.shape[0], -1)
             targets = targets.to(logits.device)
             preds = logits.max(-1)[1]
@@ -74,7 +74,7 @@ def train(configs):
         augmenter = CParseAugmenter(dataset['train'])
 
     # build models
-    model = SentimentClassifier(
+    model = MWayClassifider(
         configs.model_name, tagset, configs.device, 
         configs.hidden_dim, configs.dropout_p, configs.fine_tune, 
         configs.use_attn
@@ -130,7 +130,7 @@ def train(configs):
             targets = torch.tensor(
                 [tagset[x] for x in batch[-1]]).long().to(configs.device
             ).view(-1)
-            logits = SentimentClassifier.forward_batch(model, batch).view(
+            logits = MWayClassifider.forward_batch(model, batch).view(
                 targets.shape[0], -1)
             loss = cross_entropy(logits, targets)
             optimizer.zero_grad()

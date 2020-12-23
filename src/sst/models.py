@@ -5,13 +5,13 @@ import torch.nn as nn
 from transformers import AutoTokenizer, AutoModel
 
 
-class SentimentClassifier(nn.Module):
+class MWayClassifider(nn.Module):
     def __init__(
             self, model_name, tagset, device='cuda',
             hidden_dim=1024, dropout_p=0.2, fine_tune=False,
             use_attn=False
         ):
-        super(SentimentClassifier, self).__init__()
+        super(MWayClassifider, self).__init__()
         self.device = device
         self.fine_tune = fine_tune
         self.hidden_dim = hidden_dim
@@ -136,7 +136,7 @@ class SentimentClassifier(nn.Module):
     @staticmethod
     def forward_batch(model, batch):
         abs_model = model if isinstance(
-            model, SentimentClassifier) else model.module
+            model, MWayClassifider) else model.module
         ids, attention_masks, lbs, rbs = abs_model.__tokenize__(batch)
         logits = model(ids, attention_masks, lbs, rbs)
         return logits
@@ -156,7 +156,7 @@ if __name__ == '__main__':
         collate_fn=sst_dataset.collate_fn
     )
     tagset = {str(i): i for i in range(5)}
-    senti_classifier = SentimentClassifier(
+    senti_classifier = MWayClassifider(
         'xlm-roberta-large', tagset, use_attn=True
     )
     for batch in dataloader:
