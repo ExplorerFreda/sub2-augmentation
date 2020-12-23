@@ -68,11 +68,11 @@ class POSTagAugmenter(Augmenter):
         return self.dataset
         
 
-class SSTAugmenter(Augmenter):
+class CParseAugmenter(Augmenter):
     def __init__(
                 self, dataset, span_min_length=4, span_max_length=20
             ):
-        super(SSTAugmenter, self).__init__(dataset)
+        super(CParseAugmenter, self).__init__(dataset)
         self.rg = (span_min_length, span_max_length)
         self.build_subtree_table(dataset, self.rg)
 
@@ -85,7 +85,7 @@ class SSTAugmenter(Augmenter):
             return
         current_left = left
         for child in tree:
-            for item in SSTAugmenter.collect_subtrees(child, current_left):
+            for item in CParseAugmenter.collect_subtrees(child, current_left):
                 yield item
             child_len = 1 if isinstance(child, str) else len(child.leaves())
             current_left += child_len
@@ -149,7 +149,7 @@ class SSTAugmenter(Augmenter):
         current_left = left
         new_children = list()
         for child in tree:
-            new_child = SSTAugmenter.substitute_tree(
+            new_child = CParseAugmenter.substitute_tree(
                 child, current_left, goal_left, length, subtree
             )
             new_children.append(new_child)
@@ -158,9 +158,9 @@ class SSTAugmenter(Augmenter):
         return Tree(tree.label(), new_children)
 
 
-class SSTFreeLengthAugmenter(SSTAugmenter):
+class CParseLengthFreeAugmenter(CParseAugmenter):
     def __init__(self, *args, **kwargs):
-        super(SSTFreeLengthAugmenter, self).__init__(*args, **kwargs)
+        super(CParseLengthFreeAugmenter, self).__init__(*args, **kwargs)
 
     def reset(self):
         self.dataset = copy.deepcopy(self.original_dataset)
@@ -428,7 +428,7 @@ if __name__ == "__main__":
     sst_dataset = PTBDataset(
         f'../data/sst/train_cl.txt', use_spans=True, span_min_length=4
     )
-    sst_free_augmenter = SSTFreeLengthAugmenter(sst_dataset)
+    sst_free_augmenter = CParseLengthFreeAugmenter(sst_dataset)
     sst_augmented_dataset = sst_free_augmenter.augment(100000)
     from IPython import embed; embed(using=False)
 
@@ -436,7 +436,7 @@ if __name__ == "__main__":
     sst_dataset = PTBDataset(
         f'../data/sst/train_cl.txt', use_spans=True, span_min_length=4
     )
-    sst_augmenter = SSTAugmenter(sst_dataset)
+    sst_augmenter = CParseAugmenter(sst_dataset)
     sst_augmented_dataset = sst_augmenter.augment(100000)
     from IPython import embed; embed(using=False)
 

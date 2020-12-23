@@ -11,7 +11,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from augmenters import SSTAugmenter, SSTFreeLengthAugmenter
+from augmenters import CParseAugmenter, CParseLengthFreeAugmenter
 from data import PTBDataset
 from global_utils import search_hyperparams, AverageMeter, save_result, \
     save_checkpoint, load_checkpoint
@@ -69,9 +69,9 @@ def train(configs):
             shuffle=(split == 'train'), collate_fn=dataset[split].collate_fn
         )
     if configs.augment == 'free-length':
-        augmenter = SSTFreeLengthAugmenter(dataset['train'])
+        augmenter = CParseLengthFreeAugmenter(dataset['train'])
     elif configs.augment:
-        augmenter = SSTAugmenter(dataset['train'])
+        augmenter = CParseAugmenter(dataset['train'])
 
     # build models
     model = SentimentClassifier(
