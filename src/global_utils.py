@@ -100,7 +100,9 @@ def save_result(data, fname):
     with open(fname, 'a') as fout:
         for item in data:
             item_str = json.dumps(item, sort_keys=True)
-            print(item_str, file=fout)            
+            if item_str in existing_data:
+                continue
+            print(item_str, file=fout)
     fout.close()
 
 
