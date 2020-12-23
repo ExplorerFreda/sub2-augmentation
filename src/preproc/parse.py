@@ -1,5 +1,6 @@
 import argparse
 import benepar
+import json
 from nltk import Tree
 from tqdm import tqdm
 
@@ -26,11 +27,21 @@ if args.style == 'tree':
             senti_tree = Tree.fromstring(line)
             sent = ' '.join(senti_tree.leaves())
             cons_tree = c_parser.parse(sent)
-            # add full sentiment label to each internal node
+            # add full sentence label to each internal node
             cons_tree = add_label(cons_tree, senti_tree.label())
             cons_tree_str = ' '.join(str(cons_tree).replace('\n', ' ').split())
             print(cons_tree_str, file=fout)
+        fout.close()
 elif args.style == 'json':
-    pass
+    with open(args.output, 'w') as fout:
+        for line in tqdm(open(args.input).readlines()):
+            item = json.loads(line)
+            sent = item['sentence']
+            label = item['label'] - 1
+            cons_tree = c_parser.parse(sent)
+            cons_tree = add_label(cons_tree, str(label))
+            cons_tree_str = ' '.join(str(cons_tree).replace('\n', ' ').split())
+            print(cons_tree_str, file=fout)
+        fout.close()
 else:
     raise Exception(f'Data style {args.style} not supported.')
