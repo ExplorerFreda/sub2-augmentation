@@ -13,6 +13,9 @@ class Augmenter(object):
     def __init__(self, dataset):
         self.original_dataset = dataset
         self.dataset = copy.deepcopy(dataset)
+    
+    def reset(self):
+        self.dataset = copy.deepcopy(self.original_dataset)
 
 
 class POSTagAugmenter(Augmenter):
@@ -20,9 +23,6 @@ class POSTagAugmenter(Augmenter):
         super(POSTagAugmenter, self).__init__(dataset)
         self.k = n_gram
         self.build_ngram_table(dataset, n_gram)
-
-    def reset(self):
-        self.dataset = copy.deepcopy(self.original_dataset)
 
     def build_ngram_table(self, dataset, k):
         self.ngram_table = collections.defaultdict(list)
@@ -75,9 +75,6 @@ class CParseAugmenter(Augmenter):
         super(CParseAugmenter, self).__init__(dataset)
         self.rg = (span_min_length, span_max_length)
         self.build_subtree_table(dataset, self.rg)
-
-    def reset(self):
-        self.dataset = copy.deepcopy(self.original_dataset)
 
     @staticmethod
     def collect_subtrees(tree, left=0):
@@ -162,9 +159,6 @@ class CParseLengthFreeAugmenter(CParseAugmenter):
     def __init__(self, *args, **kwargs):
         super(CParseLengthFreeAugmenter, self).__init__(*args, **kwargs)
 
-    def reset(self):
-        self.dataset = copy.deepcopy(self.original_dataset)
-
     def build_subtree_table(self, dataset, span_length_range):
         self.subtree_table = collections.defaultdict(list)
         self.all_subtrees = list()
@@ -208,14 +202,73 @@ class CParseLengthFreeAugmenter(CParseAugmenter):
         return self.dataset
 
 
+class CParseSynonymAugmenter(CParseAugmenter):
+    def __init__(
+                self, dataset, 
+                language_model='bert-large-cased-whole-word-masking'
+            ):
+        super(CParseSynonymAugmenter, self).__init__(dataset)
+        self.tokenizer = AutoTokenizer.from_pretrained(language_model)
+        self.model = AutoModelForMaskedLM.from_pretrained(language_model).cpu()
+
+    def augment(self, size=None):
+        if size is None:
+            size = len(self.dataset) * 2
+        bar = tqdm(range(size - len(self.dataset)))
+        bar.set_description(f'Running {type(self)}')
+        while len(self.dataset.trees) < size:
+            tree_id = random.randint(0, len(self.dataset) - 1)
+            sub_tree = copy.deepcopy(self.dataset.trees[tree_id])
+            words = list(sub_tree.leaves())
+            position = random.randint(0, len(words)-1)
+            orig_token = words[position]
+            # only perform SUB on word tokens
+            if not regex.match('.*[a-z].*', orig_token):
+                continue
+            # compute substitution and output a different sub candidate
+            words[position] = self.tokenizer.mask_token
+            inputs = self.tokenizer(' '.join(words), return_tensors='pt')
+            subtoken_position = (
+                inputs['input_ids'][0] == self.tokenizer.mask_token_id
+            ).long().argmax().item()
+            labels = inputs['input_ids']
+            outputs = self.model(**inputs, labels=labels)[1][0]
+            while True:
+                subtoken_id = outputs[subtoken_position].argmax().item()
+                subtoken = self.tokenizer.convert_ids_to_tokens(subtoken_id)
+                if subtoken != orig_token:
+                    break
+                else:
+                    outputs[subtoken_position][subtoken_id] = -1e10
+            words[position] = subtoken
+            new_tree = self.rebuild(sub_tree, words)
+            self.dataset.trees.append(new_tree)
+            bar.update()
+        return self.dataset
+
+    @staticmethod
+    def rebuild(tree, words):
+        if isinstance(tree, str):
+            assert len(words) == 1
+            return words[0]
+        assert len(tree.leaves()) == len(words)
+        left = 0
+        new_children = list()
+        for child in tree:
+            n_leaves = len(child.leaves()) if isinstance(child, Tree) else 1
+            new_child = CParseSynonymAugmenter.rebuild(
+                child, words[left:left+n_leaves]
+            )
+            left += n_leaves
+            new_children.append(new_child)
+        return Tree(tree.label(), new_children)
+
+    
 class DependencyParsingAugmenter(Augmenter):
     def __init__(self, dataset, n_gram=4):
         super(DependencyParsingAugmenter, self).__init__(dataset)
         self.k = n_gram
         self.build_subtree_table(dataset)
-
-    def reset(self):
-        self.dataset = copy.deepcopy(self.original_dataset)
 
     def build_subtree_table(self, dataset):
         # augment with length restriction
@@ -333,9 +386,6 @@ class POSTagBaselineAugmenter(Augmenter):
         self.tokenizer = AutoTokenizer.from_pretrained(language_model)
         self.model = AutoModelForMaskedLM.from_pretrained(language_model)
 
-    def reset(self):
-        self.dataset = copy.deepcopy(self.original_dataset)
-
     def augment(self, size=None):
         if size is None:
             size = len(self.dataset) * 2
@@ -385,9 +435,6 @@ class POSTagJointAugmenter(Augmenter):
         self.sub_augmenter = POSTagAugmenter(dataset)
         self.synonym_augmenter = POSTagBaselineAugmenter(dataset)
 
-    def reset(self):
-        self.dataset = copy.deepcopy(self.original_dataset)
-
     def augment(self, size=None):
         if size is None:
             size = len(self.dataset) * 2
@@ -401,12 +448,9 @@ class POSTagJointAugmenter(Augmenter):
 
 class DependencyParsingJointAugmenter(POSTagJointAugmenter):
     def __init__(self, dataset):
-        super(POSTagJointAugmenter, self).__init__(dataset)
+        super(DependencyParsingJointAugmenter, self).__init__(dataset)
         self.sub_augmenter = DependencyParsingAugmenter(dataset)
         self.synonym_augmenter = DependencyParsingBaselineAugmenter(dataset)
-
-    def reset(self):
-        self.dataset = copy.deepcopy(self.original_dataset)
 
     def augment(self, size=None):
         if size is None:
@@ -424,6 +468,14 @@ if __name__ == "__main__":
 
     from data import PTBDataset
     
+    random.seed(115)
+    sst_dataset = PTBDataset(
+        f'../data/sst/train_c.txt', use_spans=False
+    )
+    sst_syno_augmenter = CParseSynonymAugmenter(sst_dataset)
+    sst_augmented_dataset = sst_syno_augmenter.augment(100000)
+    from IPython import embed; embed(using=False)
+
     random.seed(115)
     sst_dataset = PTBDataset(
         f'../data/sst/train_cl.txt', use_spans=True, span_min_length=4
