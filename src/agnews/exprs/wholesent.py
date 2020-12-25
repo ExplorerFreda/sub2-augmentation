@@ -20,6 +20,10 @@ meta_configs = dotdict.DotDict(
                 '../data/ag_news/{split}_cl.txt', 
                 '../data/ag_news/{split}_c.txt', 
                 '../data/ag_news/{split}_cl.txt', 
+                '../data/ag_news/{split}_pc.txt', 
+                '../data/ag_news/{split}_pcl.txt', 
+                '../data/ag_news/{split}_pc.txt', 
+                '../data/ag_news/{split}_pcl.txt', 
             ],
             'flag': 'data'
         },
@@ -76,7 +80,10 @@ meta_configs = dotdict.DotDict(
             'flag': None
         },
         'augment': {
-            'values': [False, True, True, 'free-length', 'free-length'],
+            'values': [
+                False, True, True, 'free-length', 'free-length',
+                True, True, 'free-length', 'free-length'
+            ],
             'flag': 'data'
         },
         'use_spans': {

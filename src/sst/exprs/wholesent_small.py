@@ -3,41 +3,34 @@ import os
 import submitit
 import sys
 from pathlib import Path
-from agnews.train import train
+from sst.train import train
 from global_utils import save_result, search_hyperparams, slurm_job_babysit
 
 
 meta_configs = dotdict.DotDict(
     {
         'tagset_size': {
-            'values': [4],
+            'values': [5],
             'flag': None
         },
         'data_path': {
             'values': [
-                '../data/ag_news/10p/{split}_c.txt', 
-                '../data/ag_news/10p/{split}_c.txt', 
-                '../data/ag_news/10p/{split}_cl.txt', 
-                '../data/ag_news/10p/{split}_c.txt', 
-                '../data/ag_news/10p/{split}_cl.txt', 
-                '../data/ag_news/1p/{split}_c.txt', 
-                '../data/ag_news/1p/{split}_c.txt', 
-                '../data/ag_news/1p/{split}_cl.txt', 
-                '../data/ag_news/1p/{split}_c.txt', 
-                '../data/ag_news/1p/{split}_cl.txt', 
-                '../data/ag_news/10p/{split}_pc.txt', 
-                '../data/ag_news/10p/{split}_pcl.txt', 
-                '../data/ag_news/10p/{split}_pc.txt', 
-                '../data/ag_news/10p/{split}_pcl.txt', 
-                '../data/ag_news/1p/{split}_pc.txt', 
-                '../data/ag_news/1p/{split}_pcl.txt', 
-                '../data/ag_news/1p/{split}_pc.txt', 
-                '../data/ag_news/1p/{split}_pcl.txt', 
+                '../data/sst/10p/{split}.txt', 
+                '../data/sst/10p/{split}.txt', 
+                '../data/sst/10p/{split}_c.txt', 
+                '../data/sst/10p/{split}_cl.txt', 
+                '../data/sst/10p/{split}.txt', 
+                '../data/sst/10p/{split}_c.txt', 
+                '../data/sst/10p/{split}_cl.txt',
+                '../data/sst/10p/{split}_pc.txt', 
+                '../data/sst/10p/{split}_pcl.txt',
+                '../data/sst/10p/{split}_pc.txt', 
+                '../data/sst/10p/{split}_pcl.txt',
             ],
             'flag': 'data'
         },
         'learning_rate': {
-            'values': [0.0001],
+            'values': [0.0005],
             'flag': 'optimizer'
         },
         'min_lr': {
@@ -57,7 +50,7 @@ meta_configs = dotdict.DotDict(
             'flag': None
         },
         'hidden_dim': {
-            'values': [64],
+            'values': [512],
             'flag': None
         },
         'dropout_p': {
@@ -69,7 +62,7 @@ meta_configs = dotdict.DotDict(
             'flag': 'fine-tune'
         },
         'batch_size': {
-            'values': [32],
+            'values': [64],
             'flag': 'fine-tune'
         },
         'epochs': {
@@ -90,9 +83,8 @@ meta_configs = dotdict.DotDict(
         },
         'augment': {
             'values': [
-                False, True, True, 'free-length', 'free-length',
-                False, True, True, 'free-length', 'free-length',
-                True, True, 'free-length', 'free-length',
+                False, True, True, True, 
+                'free-length', 'free-length', 'free-length',
                 True, True, 'free-length', 'free-length'
             ],
             'flag': 'data'
@@ -112,5 +104,5 @@ print(len(all_configs), 'configs generated.')
 idx = int(sys.argv[1])
 results = [train(x) for x in all_configs[idx:idx+1]]
 print(results[0])
-os.system(f'mkdir -p ../results/agnews/')
-save_result(results, '../results/agnews/attn_frozen_small.json')
+os.system(f'mkdir -p ../results/sst/')
+save_result(results, '../results/sst/attn_frozen_small_shuf.json')
