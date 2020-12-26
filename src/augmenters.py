@@ -154,6 +154,23 @@ class CParseAugmenter(Augmenter):
             current_left += len_child
         return Tree(tree.label(), new_children)
 
+    @staticmethod
+    def rebuild(tree, words):
+        if isinstance(tree, str):
+            assert len(words) == 1
+            return words[0]
+        assert len(tree.leaves()) == len(words)
+        left = 0
+        new_children = list()
+        for child in tree:
+            n_leaves = len(child.leaves()) if isinstance(child, Tree) else 1
+            new_child = CParseAugmenter.rebuild(
+                child, words[left:left+n_leaves]
+            )
+            left += n_leaves
+            new_children.append(new_child)
+        return Tree(tree.label(), new_children)
+
 
 class CParseLengthFreeAugmenter(CParseAugmenter):
     def __init__(self, *args, **kwargs):
@@ -246,24 +263,27 @@ class CParseSynonymAugmenter(CParseAugmenter):
             bar.update()
         return self.dataset
 
-    @staticmethod
-    def rebuild(tree, words):
-        if isinstance(tree, str):
-            assert len(words) == 1
-            return words[0]
-        assert len(tree.leaves()) == len(words)
-        left = 0
-        new_children = list()
-        for child in tree:
-            n_leaves = len(child.leaves()) if isinstance(child, Tree) else 1
-            new_child = CParseSynonymAugmenter.rebuild(
-                child, words[left:left+n_leaves]
-            )
-            left += n_leaves
-            new_children.append(new_child)
-        return Tree(tree.label(), new_children)
 
-    
+class CParseRandomAugmenter(CParseAugmenter):
+    def __init__(self, dataset):
+        super(CParseRandomAugmenter, self).__init__(dataset)
+
+    def augment(self, size=None):
+        if size is None:
+            size = len(self.dataset) * 2
+        bar = tqdm(range(size - len(self.dataset)))
+        bar.set_description(f'Running {type(self)}')
+        while len(self.dataset.trees) < size:
+            tree_id = random.randint(0, len(self.dataset) - 1)
+            sub_tree = copy.deepcopy(self.dataset.trees[tree_id])
+            words = list(sub_tree.leaves())
+            random.shuffle(words)
+            new_tree = self.rebuild(sub_tree, words)
+            self.dataset.trees.append(new_tree)
+            bar.update()
+        return self.dataset
+
+
 class DependencyParsingAugmenter(Augmenter):
     def __init__(self, dataset, n_gram=4):
         super(DependencyParsingAugmenter, self).__init__(dataset)
@@ -467,7 +487,15 @@ if __name__ == "__main__":
     # PTB augmenter unit test
 
     from data import PTBDataset
-    
+
+    random.seed(115)
+    sst_dataset = PTBDataset(
+        f'../data/sst/train_c.txt', use_spans=False
+    )
+    sst_rand_augmenter = CParseRandomAugmenter(sst_dataset)
+    sst_augmented_dataset = sst_rand_augmenter.augment(100000)
+    from IPython import embed; embed(using=False)
+
     random.seed(115)
     sst_dataset = PTBDataset(
         f'../data/sst/train_c.txt', use_spans=False

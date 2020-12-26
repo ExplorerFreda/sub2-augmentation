@@ -26,6 +26,8 @@ meta_configs = dotdict.DotDict(
                 '../data/sst/10p/{split}_pcl.txt',
                 '../data/sst/10p/{split}_pc.txt', 
                 '../data/sst/10p/{split}_pcl.txt',
+                '../data/sst/10p/{split}.txt',
+                '../data/sst/10p/{split}.txt',
             ],
             'flag': 'data'
         },
@@ -83,9 +85,11 @@ meta_configs = dotdict.DotDict(
         },
         'augment': {
             'values': [
-                False, True, True, True, 
+                False, 
+                True, True, True, 
                 'free-length', 'free-length', 'free-length',
-                True, True, 'free-length', 'free-length'
+                True, True, 'free-length', 
+                'free-length', 'synonym', 'random'
             ],
             'flag': 'data'
         },

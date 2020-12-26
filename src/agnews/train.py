@@ -11,7 +11,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from augmenters import CParseAugmenter, CParseLengthFreeAugmenter
+from augmenters import CParseAugmenter, CParseLengthFreeAugmenter, \
+    CParseSynonymAugmenter, CParseRandomAugmenter
 from data import PTBDataset
 from global_utils import search_hyperparams, AverageMeter, save_result, \
     save_checkpoint, load_checkpoint
@@ -69,6 +70,10 @@ def train(configs):
         )
     if configs.augment == 'free-length':
         augmenter = CParseLengthFreeAugmenter(dataset['train'])
+    elif configs.augment == 'synonym':
+        augmenter = CParseSynonymAugmenter(dataset['train'])
+    elif configs.augment == 'random':
+        augmenter = CParseRandomAugmenter(dataset['train'])
     elif configs.augment:
         augmenter = CParseAugmenter(dataset['train'])
 

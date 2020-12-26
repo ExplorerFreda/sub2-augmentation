@@ -33,6 +33,10 @@ meta_configs = dotdict.DotDict(
                 '../data/ag_news/1p/{split}_pcl.txt', 
                 '../data/ag_news/1p/{split}_pc.txt', 
                 '../data/ag_news/1p/{split}_pcl.txt', 
+                '../data/ag_news/1p/{split}_c.txt', 
+                '../data/ag_news/10p/{split}_c.txt',  
+                '../data/ag_news/1p/{split}_c.txt', 
+                '../data/ag_news/10p/{split}_c.txt', 
             ],
             'flag': 'data'
         },
@@ -93,7 +97,9 @@ meta_configs = dotdict.DotDict(
                 False, True, True, 'free-length', 'free-length',
                 False, True, True, 'free-length', 'free-length',
                 True, True, 'free-length', 'free-length',
-                True, True, 'free-length', 'free-length'
+                True, True, 'free-length', 'free-length',
+                'synonym', 'synonym', 
+                'random', 'random'
             ],
             'flag': 'data'
         },
