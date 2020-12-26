@@ -1,3 +1,6 @@
 [submodule "3rdparty/parser"]
 	path = 3rdparty/parser
 	url = https://github.com/ExplorerFreda/parser.git
+[submodule "3rdparty/c-parser"]
+	path = 3rdparty/c-parser
+	url = https://github.com/ExplorerFreda/self-attentive-parser
