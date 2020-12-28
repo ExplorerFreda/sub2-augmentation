@@ -136,8 +136,8 @@ class CParseAugmenter(Augmenter):
     def substitute_tree(tree, left, goal_left, length, subtree):
         tree_label = None if isinstance(tree, str) else tree.label()
         len_tree = 1 if isinstance(tree, str) else len(tree.leaves())
-        if left == goal_left and len_tree == length:
-            assert tree.label() == subtree.label()
+        if left == goal_left and len_tree == length and \
+                tree_label == subtree.label():
             return copy.deepcopy(subtree)
         elif isinstance(tree, str):
             return tree
