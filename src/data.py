@@ -127,10 +127,11 @@ class UniversalDependenciesDataset(Dataset):
 class PTBDataset(Dataset):
     def __init__(
                 self, data_path_template, use_spans=True, span_min_length=1,
-                preproc_method='g'
+                preproc_method='g', collapse_unary=True
             ):
         super(PTBDataset, self).__init__()
         self.trees = list()
+        self.collapse_unary = collapse_unary
         for path in glob(data_path_template):
             for line in open(path):
                 tree = nltk.Tree.fromstring(line)
@@ -139,7 +140,8 @@ class PTBDataset(Dataset):
                 if 'p' in preproc_method:  # keep only phrase labels for NTs
                     for s in tree.subtrees():
                         s.set_label(s.label().split('-')[-1])
-                tree.collapse_unary()
+                if collapse_unary:
+                    tree.collapse_unary()
                 self.trees.append(tree)
         # preproc spans
         self.use_spans = use_spans

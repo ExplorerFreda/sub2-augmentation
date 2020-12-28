@@ -15,7 +15,7 @@ def augment(configs):
     orig_train_path = f'/share/data/lang/users/freda/codebase/DomAdapt/data/{configs.data_name}/train.trees'
     aug_train_path = f'/share/data/lang/users/freda/codebase/DomAdapt/data/augment/' \
         f'{configs.data_name}/train.trees.{configs.augmenter_type}.{configs.augment_idx}'
-    orig_dataset = PTBDataset(orig_train_path, use_spans=False)
+    orig_dataset = PTBDataset(orig_train_path, use_spans=False, collapse_unary=False)
     if configs.augmenter_type == 'sub':
         augmenter = CParseLengthFreeAugmenter(dataset=orig_dataset)
     elif configs.augmenter_type == 'synonym':
@@ -51,21 +51,21 @@ meta_configs = dotdict.DotDict(
     {
         'data_name': {
             'values': [
-                'foreebank/eng', 
+                # 'foreebank/eng', 
                 'foreebank/fre', 
-                'genia-dist/division', 
-                'nxt-switchboard/ptb-style', 
-                'qbank'
+                # 'genia-dist/division', 
+                # 'nxt-switchboard/ptb-style', 
+                # 'qbank'
             ], 
             'flag': 'data'
         },
         'prefix': {
             'values': [
-                'models/benepar/foreebank_e',
+                # 'models/benepar/foreebank_e',
                 'models/benepar/foreebank_f',
-                'models/benepar/genia',
-                'models/benepar/swbd',
-                'models/benepar/qbank'
+                # 'models/benepar/genia',
+                # 'models/benepar/swbd',
+                # 'models/benepar/qbank'
             ], 
             'flag': 'data'
         },
