@@ -231,6 +231,7 @@ class CParseSynonymAugmenter(CParseAugmenter):
     def augment(self, size=None):
         if size is None:
             size = len(self.dataset) * 2
+        original_tree_size = len(self.dataset.trees)
         bar = tqdm(range(size - len(self.dataset)))
         bar.set_description(f'Running {type(self)}')
         while len(self.dataset.trees) < size:
@@ -261,6 +262,7 @@ class CParseSynonymAugmenter(CParseAugmenter):
             new_tree = self.rebuild(sub_tree, words)
             self.dataset.trees.append(new_tree)
             bar.update()
+        self.dataset.add_spans(self.dataset.trees[original_tree_size:])
         return self.dataset
 
 
@@ -271,6 +273,7 @@ class CParseRandomAugmenter(CParseAugmenter):
     def augment(self, size=None):
         if size is None:
             size = len(self.dataset) * 2
+        original_tree_size = len(self.dataset.trees)
         bar = tqdm(range(size - len(self.dataset)))
         bar.set_description(f'Running {type(self)}')
         while len(self.dataset.trees) < size:
@@ -281,6 +284,85 @@ class CParseRandomAugmenter(CParseAugmenter):
             new_tree = self.rebuild(sub_tree, words)
             self.dataset.trees.append(new_tree)
             bar.update()
+        self.dataset.add_spans(self.dataset.trees[original_tree_size:])
+        return self.dataset
+
+
+class CParseSpanAugmenter(CParseAugmenter):
+    def __init__(self, dataset):
+        super(CParseSpanAugmenter, self).__init__(dataset)
+        self.example_table = self.build_example_table()
+
+    def build_example_table(self):
+        example_table = collections.defaultdict(list)
+        for tree in self.dataset.trees:
+            label = tree.label()
+            example_table[label].append(tree)
+        return example_table
+
+    def augment(self, size=None):
+        if size is None:
+            size = len(self.dataset) * 2
+        original_tree_size = len(self.dataset.trees)
+        bar = tqdm(range(size - len(self.dataset)))
+        bar.set_description(f'Running {type(self)}')
+        while len(self.dataset.trees) < size:
+            tree_id = random.randint(0, len(self.dataset) - 1)
+            sub_tree = copy.deepcopy(self.dataset.trees[tree_id])
+            label = sub_tree.label()
+            words = list(sub_tree.leaves())
+            sub_left = random.randint(0, len(words) - 1)
+            sub_right = random.randint(sub_left + 1, len(words))
+            candidate_id = random.randint(0, len(self.example_table[label]) - 1)
+            candidate_tree = copy.deepcopy(self.example_table[label][candidate_id])
+            candidate_words = candidate_tree.leaves()
+            can_left = random.randint(0, len(candidate_words) - 1)
+            can_right = random.randint(can_left + 1, len(candidate_words))
+            new_words = words[:sub_left] + candidate_words[can_left:can_right] + words[sub_right:]
+            new_tree = Tree(label, new_words)
+            self.dataset.trees.append(new_tree)
+            bar.update()
+        self.dataset.add_spans(self.dataset.trees[original_tree_size:])
+        return self.dataset
+
+
+class CParseLengthSpanAugmenter(CParseAugmenter):
+    def __init__(self, dataset):
+        super(CParseLengthSpanAugmenter, self).__init__(dataset)
+        self.example_table = self.build_example_table()
+
+    def build_example_table(self):
+        example_table = collections.defaultdict(list)
+        for tree in self.dataset.trees:
+            label = tree.label()
+            example_table[label].append(tree)
+        return example_table
+
+    def augment(self, size=None):
+        if size is None:
+            size = len(self.dataset) * 2
+        original_tree_size = len(self.dataset.trees)
+        bar = tqdm(range(size - len(self.dataset)))
+        bar.set_description(f'Running {type(self)}')
+        while len(self.dataset.trees) < size:
+            tree_id = random.randint(0, len(self.dataset) - 1)
+            sub_tree = copy.deepcopy(self.dataset.trees[tree_id])
+            label = sub_tree.label()
+            words = list(sub_tree.leaves())
+            sub_left = random.randint(0, len(words) - 1)
+            sub_right = random.randint(sub_left + 1, len(words))
+            candidate_id = random.randint(0, len(self.example_table[label]) - 1)
+            candidate_tree = copy.deepcopy(self.example_table[label][candidate_id])
+            candidate_words = candidate_tree.leaves()
+            can_left = random.randint(0, len(candidate_words) - 1)
+            can_right = can_left + sub_right - sub_left 
+            if can_right > len(candidate_words):
+                continue
+            new_words = words[:sub_left] + candidate_words[can_left:can_right] + words[sub_right:]
+            new_tree = Tree(label, new_words)
+            self.dataset.trees.append(new_tree)
+            bar.update()
+        self.dataset.add_spans(self.dataset.trees[original_tree_size:])
         return self.dataset
 
 
@@ -483,8 +565,47 @@ class DependencyParsingJointAugmenter(POSTagJointAugmenter):
         return self.dataset
 
 
+class POSTagRandomAugmenter(Augmenter):
+    def __init__(self, *args, **kwargs):
+        super(POSTagRandomAugmenter, self).__init__(*args, **kwargs)
+
+    def augment(self, size=None):
+        if size is None:
+            size = len(self.dataset) * 2
+        bar = tqdm(range(size - len(self.dataset)))
+        bar.set_description(f'Running {type(self)}')
+        while len(self.dataset) < size:
+            sent_id = random.randint(0, len(self.dataset) - 1)
+            sub_sentence = copy.deepcopy(self.dataset[sent_id])
+            new2orig = [i for i in range(len(sub_sentence.words))]
+            random.shuffle(new2orig)
+            orig2new = {i: k for k, i in enumerate(new2orig)}
+            orig2new[-1] = -1  # root
+            pos = [sub_sentence.tags[i] for _, i in enumerate(new2orig)]
+            words = [sub_sentence.words[i] for _, i in enumerate(new2orig)]
+            deps = [
+                orig2new[sub_sentence.deps[i]-1]+1 
+                for _, i in enumerate(new2orig)
+            ]
+            dep_labels = [
+                sub_sentence.dep_labels[i] for _, i in enumerate(new2orig)
+            ]
+            sub_sentence.words = words
+            sub_sentence.tags = pos
+            sub_sentence.deps = deps
+            sub_sentence.dep_labels = dep_labels
+            self.dataset.data.append(sub_sentence)
+            bar.update()
+        return self.dataset
+
+
+class DependencyParsingRandomAugmenter(POSTagRandomAugmenter):
+    def __init__(self, *args, **kwargs):
+        super(DependencyParsingRandomAugmenter, self).__init__(*args, **kwargs)
+
+
 if __name__ == "__main__":
-    # PTB augmenter unit test
+    # augmenter unit test
 
     from data import PTBDataset
 
@@ -558,4 +679,13 @@ if __name__ == "__main__":
     )
     augmenter = POSTagAugmenter(dataset)
     augmented_dataset = augmenter.augment()
+    from IPython import embed; embed(using=False)
+
+    from data import UniversalDependenciesDataset
+    ud_dataset = UniversalDependenciesDataset(
+        '../data/ud-treebanks-v2.6/UD_English-*/en_ewt-ud-train.conllu', 
+        '../data/ud-treebanks-v2.6/tags.txt'
+    )
+    ud_rand_augmenter = POSTagRandomAugmenter(ud_dataset)
+    ud_rand_augmenter.augment()
     from IPython import embed; embed(using=False)
